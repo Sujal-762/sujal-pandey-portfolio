@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <!-- Title, description, canonical, Open Graph and JSON-LD are generated per page from src/content
+         (scripts/seo.mjs). Do not hand-edit them here. -->
+    <!--seo-head-->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <!-- Reduced motion → the calm, static version of the journey (decided before first paint). -->
+    <script>
+      try {
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("calm");
+      } catch (e) {}
+    </script>
+    <!-- Without JavaScript: show every chapter as a normal, static page. -->
+    <noscript><style>
+      .chapter{height:auto!important}.chapter__frame{position:relative!important;height:auto!important;min-height:100vh}
+      .cue{opacity:1!important;transform:none!important}.hs-dot,.skip-intro{display:none!important}
+    </style></noscript>
+  </head>
+  <body>
+    <div id="root"><!--app-html--></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

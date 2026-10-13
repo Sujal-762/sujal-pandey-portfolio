@@ -1,0 +1,18 @@
+# Build output — regenerate with `npm run build`
+dist/
+.ssr/
+
+# Internal, unpublished project drafts — keep out of any public repository
+drafts/
+
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local development files
+.DS_Store
+Thumbs.db
+.vscode/
