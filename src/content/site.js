@@ -7,8 +7,8 @@
 export const site = {
   // UNRESOLVED: placeholder until the real public URL is known.
   // Change only with: npm run set-domain -- https://real-url
-  siteUrl: "https://YOUR-DOMAIN.example",
-  lastModified: "2026-10-12",
+  siteUrl: "https://sujalpandey.in",
+  lastModified: "2026-10-14",
   lang: "en-IN",
   locale: "en_IN",
   title: "Sujal Pandey – Forensic Science Student & Aspiring CSI",

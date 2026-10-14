@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight, Mail, Copy, Check, CodeXml, X, ScanLine } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Mail, Copy, Check, CodeXml, X, ScanLine, Lock } from "lucide-react";
 import Poster from "./Poster.jsx";
-import { journey } from "./store.js";
-import { skipIntro, useAnchor } from "./useJourney.js";
+import { journey, setJourney, useJourneyState } from "./store.js";
+import { skipIntro, useAnchor, setMotionPreference } from "./useJourney.js";
 import { hotspots, labNotes, labAnchors } from "../content/journey.js";
+import { archiveEntries, ARCHIVE_FILTERS } from "../content/archive.js";
 import { contacts, profile } from "../content/site.js";
-import { caseStudies } from "../content/caseStudies.js";
-import { casePath } from "../lib/routes.js";
 import { LinkedInMark } from "../components/ui.jsx";
 import { cx } from "../lib/hooks.js";
 
@@ -25,7 +24,44 @@ function Chapter({ id, h, poster, labelledBy, className, children }) {
 /** Fades in between local progress a…b of its chapter (pure CSS from --lp). */
 const cue = (a, b) => ({ "--a": a, "--b": b });
 
+/** Hover/focus on a DOM control highlights the matching 3D object (and vice versa via journey.hover). */
+const hoverProps = (id) => ({
+  onMouseEnter: () => setJourney({ hover: id }),
+  onMouseLeave: () => journey.hover === id && setJourney({ hover: null }),
+  onFocus: () => setJourney({ hover: id }),
+  onBlur: () => journey.hover === id && setJourney({ hover: null }),
+});
+
+/** Escape closes the open panel; focus returns to the control that opened it. */
+function useEscape(active, onClose) {
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [active, onClose]);
+}
+
 // ---------------------------------------------------------------- 01 · Room
+
+/**
+ * Shown only when calm motion comes from the device's reduced-motion setting (not a choice made here):
+ * the scene stays calm by default, and the visitor can opt in to camera movement. Client-only.
+ */
+function MotionNotice() {
+  const fromSystem = useJourneyState((j) => j.motionFromSystem);
+  const [dismissed, setDismissed] = useState(false);
+  if (!fromSystem || dismissed) return null;
+  return (
+    <div className="motion-notice" role="note" data-ui="">
+      <p>Calm motion is on because your device asks for reduced motion.</p>
+      <div className="motion-notice__actions">
+        <button type="button" className="motion-notice__on" onClick={() => setMotionPreference("full")}>Turn on full motion</button>
+        <button type="button" className="motion-notice__keep" onClick={() => setDismissed(true)}>Keep calm</button>
+      </div>
+    </div>
+  );
+}
 
 export function RoomChapter() {
   return (
@@ -43,7 +79,8 @@ export function RoomChapter() {
       <a className="invite cue" style={cue(-1, 0.45)} href="#evidence">
         Enter the scene <ArrowDown size={15} aria-hidden="true" />
       </a>
-      <button type="button" className="skip-intro" onClick={skipIntro}>Skip intro</button>
+      <button type="button" className="skip-intro" onClick={skipIntro} data-ui="">Skip intro</button>
+      <MotionNotice />
       <p className="frame-caption">Illustrative set · no real case or evidence depicted</p>
     </Chapter>
   );
@@ -51,7 +88,7 @@ export function RoomChapter() {
 
 // ---------------------------------------------------------------- 02 · Evidence
 
-function HotspotDot({ spot, onOpen, active }) {
+function HotspotDot({ spot, active, onOpen }) {
   const ref = useAnchor(`hs-${spot.id}`, spot.world, [0.95, 2.0]);
   return (
     <button
@@ -60,8 +97,10 @@ function HotspotDot({ spot, onOpen, active }) {
       className={cx("hs-dot", active && "is-active")}
       style={{ "--fx": `${spot.fallback[0]}%`, "--fy": `${spot.fallback[1]}%` }}
       onClick={() => onOpen(spot.id)}
+      {...hoverProps(spot.id)}
       tabIndex={-1}
       aria-hidden="true"
+      data-ui=""
     >
       <span className="hs-dot__ring" />
       <span className="hs-dot__label">{spot.label}</span>
@@ -70,31 +109,27 @@ function HotspotDot({ spot, onOpen, active }) {
 }
 
 export function EvidenceChapter() {
-  const [open, setOpen] = useState(null);
+  // The open panel IS the camera focus: a 3D click, a dot or the Evidence index all set journey.focus.
+  const open = useJourneyState((j) => j.focus);
   const panelTitle = useRef({});
+  const lastOpen = useRef(null);
 
-  const show = (id) => {
-    setOpen(id);
-    requestAnimationFrame(() => panelTitle.current[id]?.focus());
-  };
-  // Focus always returns to the item in the Evidence index (the 3D dots are a pointer-only enhancement).
-  const close = () => {
-    const id = open;
-    setOpen(null);
-    requestAnimationFrame(() => document.querySelector(`[data-index="${id}"]`)?.focus());
-  };
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && close();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    if (open) requestAnimationFrame(() => panelTitle.current[open]?.focus({ preventScroll: true }));
+    else if (lastOpen.current) document.querySelector(`[data-index="${lastOpen.current}"]`)?.focus({ preventScroll: true });
+    lastOpen.current = open;
   }, [open]);
+
+  const show = (id) => setJourney({ focus: id });
+  const close = () => setJourney({ focus: null });
+  useEscape(!!open, close);
 
   return (
     <Chapter id="evidence" h="260vh" poster="room" labelledBy="evidence-title">
       <div className="evidence__head cue" style={cue(-1, 0.97)}>
         <p className="chapter-label">02 · The evidence table</p>
         <h2 id="evidence-title" className="chapter-title" tabIndex={-1}>Explore the evidence</h2>
+        <p className="evidence__hint">Select an object to examine it.</p>
       </div>
 
       <div className="profile-lines" aria-label="Profile">
@@ -104,19 +139,17 @@ export function EvidenceChapter() {
       </div>
 
       <div className="hs-layer cue" style={cue(0.04, 0.97)}>
-        {hotspots.map((s) => (
-          <HotspotDot key={s.id} spot={{ ...s }} active={open === s.id} onOpen={show} />
-        ))}
+        {hotspots.map((s) => <HotspotDot key={s.id} spot={s} active={open === s.id} onOpen={show} />)}
       </div>
 
-      <nav className="evidence-index cue" style={cue(-1, 0.99)} aria-label="Evidence index">
+      <nav className="evidence-index cue" style={cue(-1, 0.99)} aria-label="Evidence index" data-ui="">
         <p className="evidence-index__title">Evidence index · illustrative props</p>
         <ul>
           {hotspots.map((s, i) => (
             <li key={s.id}>
               <button type="button" data-index={s.id} aria-expanded={open === s.id}
                 aria-controls={`hs-panel-${s.id}`} className={cx(open === s.id && "is-active")}
-                onClick={() => (open === s.id ? close() : show(s.id))}>
+                onClick={() => (open === s.id ? close() : show(s.id))} {...hoverProps(s.id)}>
                 <span className="evidence-index__n" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
                 {s.label}
               </button>
@@ -126,8 +159,9 @@ export function EvidenceChapter() {
       </nav>
 
       {hotspots.map((s) => (
-        <div key={s.id} id={`hs-panel-${s.id}`} className="hs-panel" role="region" aria-labelledby={`hs-title-${s.id}`} hidden={open !== s.id}>
-          <p className="hs-panel__kicker">{s.label}</p>
+        <div key={s.id} id={`hs-panel-${s.id}`} className="hs-panel" role="region" aria-labelledby={`hs-title-${s.id}`}
+          hidden={open !== s.id} data-ui="">
+          <p className="hs-panel__kicker">{s.label} · close-up</p>
           <h3 id={`hs-title-${s.id}`} tabIndex={-1} ref={(el) => (panelTitle.current[s.id] = el)}>{s.title}</h3>
           <p>{s.body}</p>
           <button type="button" className="hs-panel__close" onClick={close} aria-label={`Close: ${s.title}`}>
@@ -139,143 +173,168 @@ export function EvidenceChapter() {
   );
 }
 
-// ---------------------------------------------------------------- 03 · Transform
+// ---------------------------------------------------------------- 03 · Transformation
 
 export function TransformChapter() {
   return (
-    <Chapter id="transform" h="260vh" poster="lab" labelledBy="transform-title">
-      <h2 id="transform-title" className="visually-hidden">From physical evidence to digital data</h2>
+    <Chapter id="transform" h="250vh" poster="lab" labelledBy="transform-title">
+      <h2 id="transform-title" className="visually-hidden">From physical evidence to digital analysis</h2>
       <p className="caption caption--mono cue" style={cue(0.0, 0.26)}>Scan · ridge card (illustrative prop)</p>
       <p className="caption cue" style={cue(0.34, 0.74)}>Physical traces become <em>data</em>.</p>
     </Chapter>
   );
 }
 
-// ---------------------------------------------------------------- 04 · Lab
+// ---------------------------------------------------------------- 04 · Digital forensics archive
 
 function LabAnchor({ a, show }) {
-  const ref = useAnchor(`lab-${a.id}`, a.world, [2.98, 3.96]);
+  const ref = useAnchor(`lab-${a.id}`, a.world, [2.95, 4.05]);
   return <span ref={ref} className={cx("lab-anchor", show && "is-shown")} aria-hidden="true"><span>{a.label}</span></span>;
 }
 
-export function LabChapter() {
-  const [mode, setMode] = useState("fingerprint");
+function PrintDemo({ onScanned }) {
   const [scan, setScan] = useState("idle");
-  const [event, setEvent] = useState(0);
-  const tabs = useRef([]);
-  const events = useRef([]);
   const timer = useRef();
   useEffect(() => () => clearTimeout(timer.current), []);
-
-  const choose = (m) => { setMode(m); journey.labMode = m; };
-  const runScan = () => {
-    const calm = document.documentElement.classList.contains("calm");
+  const run = () => {
     journey.scanStart = performance.now();
-    setScan(calm ? "done" : "scanning");
+    setScan("scanning");
     clearTimeout(timer.current);
-    if (!calm) timer.current = setTimeout(() => setScan("done"), 2400);
+    timer.current = setTimeout(() => { setScan("done"); onScanned(true); }, journey.reduced ? 0 : 2400);
   };
-  const pickEvent = (i) => { setEvent(i); journey.labEvent = i; };
-  const keys = (e, i, n, list, act) => {
-    const next = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[e.key];
+  return (
+    <div className="demo">
+      <button type="button" className="lab-action" onClick={run} disabled={scan === "scanning"}>
+        <ScanLine size={17} aria-hidden="true" /> {scan === "scanning" ? "Scanning…" : scan === "done" ? "Scan again" : "Run illustrative scan"}
+      </button>
+      <p className="lab-status" role="status">
+        {scan === "done" && "Scan complete. Visual demonstration only — no comparison or identification was performed."}
+      </p>
+    </div>
+  );
+}
+
+function DeviceDemo() {
+  const event = useJourneyState((j) => j.labEvent);
+  const refs = useRef([]);
+  const pick = (i) => setJourney({ labEvent: i });
+  const onKey = (e, i) => {
+    const n = labNotes.events.length;
+    const next = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: n - 1 }[e.key];
     if (next === undefined) return;
     e.preventDefault();
     const j = (next + n) % n;
-    act(j);
-    list.current[j]?.focus();
+    pick(j);
+    refs.current[j]?.focus();
   };
-  const MODES = [["fingerprint", "Fingerprint"], ["device", "Device"]];
-
   return (
-    <Chapter id="lab" h="250vh" poster="lab" labelledBy="lab-title">
-      {labAnchors.map((a) => <LabAnchor key={a.id} a={a} show={mode === "fingerprint" && scan === "done"} />)}
-
-      <div className="lab-panel cue" style={cue(-1, 0.97)}>
-        <p className="chapter-label">03 · The digital lab</p>
-        <h2 id="lab-title" className="chapter-title" tabIndex={-1}>The digital lab</h2>
-        <p className="illustrative" data-illustrative=""><span aria-hidden="true">●</span> Fictional / illustrative data</p>
-
-        <div className="lab-tabs" role="tablist" aria-label="Lab instrument">
-          {MODES.map(([id, label], i) => (
-            <button key={id} ref={(el) => (tabs.current[i] = el)} type="button" role="tab" id={`labtab-${id}`}
-              aria-selected={mode === id} aria-controls={`labpanel-${id}`} tabIndex={mode === id ? 0 : -1}
-              onClick={() => choose(id)} onKeyDown={(e) => keys(e, i, MODES.length, tabs, (j) => choose(MODES[j][0]))}>
-              {label}
+    <div className="demo">
+      <p><strong>{labNotes.digital.title}.</strong> {labNotes.digital.description}</p>
+      <p className="lab-fiction">Fictional timeline · no real device was examined</p>
+      <ol className="timeline" aria-label="Fictional device timeline">
+        {labNotes.events.map((ev, i) => (
+          <li key={ev.time}>
+            <button ref={(el) => (refs.current[i] = el)} type="button" aria-pressed={event === i}
+              tabIndex={event === i ? 0 : -1} onClick={() => pick(i)} onKeyDown={(e) => onKey(e, i)}>
+              <span className="timeline__time">{ev.time}</span> {ev.label}
             </button>
-          ))}
-        </div>
-
-        <div role="tabpanel" id="labpanel-fingerprint" aria-labelledby="labtab-fingerprint" hidden={mode !== "fingerprint"} className="lab-body">
-          <p>A ridge pattern rebuilt from the particles of the card — generated by this site, not a real print.</p>
-          <button type="button" className="lab-action" onClick={runScan} disabled={scan === "scanning"}>
-            <ScanLine size={17} aria-hidden="true" /> {scan === "scanning" ? "Scanning…" : scan === "done" ? "Scan again" : "Run illustrative scan"}
-          </button>
-          <p className="lab-status" role="status">
-            {scan === "done" && "Scan complete. Visual demonstration only — no comparison or identification was performed."}
-          </p>
-        </div>
-
-        <div role="tabpanel" id="labpanel-device" aria-labelledby="labtab-device" hidden={mode !== "device"} className="lab-body">
-          <p><strong>{labNotes.digital.title}.</strong> {labNotes.digital.description}</p>
-          <p className="lab-fiction">Fictional timeline · no real device was examined</p>
-          <ol className="timeline" aria-label="Fictional device timeline">
-            {labNotes.events.map((ev, i) => (
-              <li key={ev.time}>
-                <button ref={(el) => (events.current[i] = el)} type="button" aria-pressed={event === i}
-                  tabIndex={event === i ? 0 : -1} onClick={() => pickEvent(i)}
-                  onKeyDown={(e) => keys(e, i, labNotes.events.length, events, pickEvent)}>
-                  <span className="timeline__time">{ev.time}</span> {ev.label}
-                </button>
-              </li>
-            ))}
-          </ol>
-          <p className="lab-note" aria-live="polite">{labNotes.events[event].note}</p>
-        </div>
-      </div>
-    </Chapter>
+          </li>
+        ))}
+      </ol>
+      <p className="lab-note" aria-live="polite">{labNotes.events[event].note}</p>
+    </div>
   );
 }
-
-// ---------------------------------------------------------------- 05 · Trace
-
-export function TraceChapter() {
-  return (
-    <Chapter id="trace" h="210vh" poster="archive" labelledBy="trace-title">
-      <h2 id="trace-title" className="visually-hidden">From data to documented record</h2>
-      <p className="caption cue" style={cue(0.06, 0.42)}>Data alone is not a <em>conclusion</em>.</p>
-      <p className="caption cue" style={cue(0.52, 0.96)}>In the archive, every claim needs a <em>source</em>.</p>
-    </Chapter>
-  );
-}
-
-// ---------------------------------------------------------------- 06 · Archive
 
 export function ArchiveChapter() {
+  const selected = useJourneyState((j) => j.entry);
+  const hover = useJourneyState((j) => j.hover);
+  const [filter, setFilter] = useState("all");
+  const [scanned, setScanned] = useState(false);
+  const titles = useRef({});
+  const lastOpen = useRef(null);
+
+  useEffect(() => { setJourney({ filter }); }, [filter]);
+  useEffect(() => {
+    if (selected) requestAnimationFrame(() => titles.current[selected]?.focus({ preventScroll: true }));
+    else if (lastOpen.current) document.querySelector(`[data-entry="${lastOpen.current}"]`)?.focus({ preventScroll: true });
+    lastOpen.current = selected;
+  }, [selected]);
+
+  const close = () => setJourney({ entry: null });
+  useEscape(!!selected, close);
+  const visible = archiveEntries.filter((e) => filter === "all" || e.group === filter);
+
   return (
-    <Chapter id="archive" h="190vh" poster="archive" labelledBy="archive-title">
-      <div className="archive-hero cue" style={cue(-1, 1.01)}>
-        <p className="chapter-label">04 · The archive</p>
-        <h2 id="archive-title" className="archive-hero__title" tabIndex={-1}>The Archive</h2>
-        {caseStudies.length === 0 ? (
-          <p className="archive-hero__empty">Dossiers in preparation.</p>
-        ) : (
-          <ol className="archive-hero__list">
-            {caseStudies.map((c) => (
-              <li key={c.slug}><a href={casePath(c.slug)}><span className="archive-hero__tag">Public case study</span>{c.title}</a></li>
-            ))}
-          </ol>
-        )}
-        <p className="archive-hero__note">
-          Public case studies appear only once their sources are verified — always kept separate from
-          academic projects and demonstrations.
+    <Chapter id="archive" h="280vh" poster="lab" labelledBy="archive-title">
+      {labAnchors.map((a) => <LabAnchor key={a.id} a={a} show={selected === "demo-print" && scanned} />)}
+
+      <div className="archive-ui cue" style={cue(-1, 1.01)} data-ui="">
+        <p className="chapter-label">03 · Digital forensics archive</p>
+        <h2 id="archive-title" className="chapter-title" tabIndex={-1}>The Archive</h2>
+        <p className="archive-ui__meta">
+          {archiveEntries.length} entries, each labelled by type. Demonstrations use fictional or illustrative data;
+          nothing here is real casework.
         </p>
-        <a className="text-link" href="/archive/">Open the archive index <ArrowUpRight size={15} aria-hidden="true" /></a>
+
+        <div className="archive-filters" role="group" aria-label="Filter the archive">
+          {ARCHIVE_FILTERS.map((f) => {
+            const n = f.id === "all" ? archiveEntries.length : archiveEntries.filter((e) => e.group === f.id).length;
+            return (
+              <button key={f.id} type="button" className={cx("afilter", filter === f.id && "is-on")} aria-pressed={filter === f.id}
+                onClick={() => setFilter(f.id)}>
+                {f.label} <span className="afilter__n">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <ol className="archive-list" aria-label="Archive entries">
+          {visible.map((e) => (
+            <li key={e.id}>
+              <button type="button" data-entry={e.id} aria-expanded={selected === e.id} aria-controls={`entry-${e.id}`}
+                className={cx("archive-item", selected === e.id && "is-open", hover === e.id && "is-hover", e.sealed && "is-sealed")}
+                onClick={() => setJourney({ entry: selected === e.id ? null : e.id })} {...hoverProps(e.id)}>
+                <span className="archive-item__code">{e.code}</span>
+                <span className="archive-item__title">{e.title}</span>
+                <span className="archive-item__type">{e.type}</span>
+                <span className={cx("status", e.sealed && "status--sealed", e.demo && "status--demo")}>{e.status}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        <a className="text-link archive-ui__more" href="/archive/">
+          Case-study index, sources & editorial standard <ArrowUpRight size={14} aria-hidden="true" />
+        </a>
       </div>
+
+      {archiveEntries.map((e) => (
+        <article key={e.id} id={`entry-${e.id}`} className="entry-panel" aria-labelledby={`entry-title-${e.id}`}
+          hidden={selected !== e.id} data-ui="">
+          <p className="entry-panel__kicker">{e.type} · {e.code}</p>
+          <h3 id={`entry-title-${e.id}`} tabIndex={-1} ref={(el) => (titles.current[e.id] = el)}>{e.title}</h3>
+          <p className={cx("status", e.sealed && "status--sealed", e.demo && "status--demo")}>{e.status}</p>
+          {e.demo && <p className="illustrative" data-illustrative=""><span aria-hidden="true">●</span> Fictional / illustrative data</p>}
+          <p className="entry-panel__summary">{e.summary}</p>
+          {e.sealed && <p className="entry-panel__sealed"><Lock size={14} aria-hidden="true" /> Sealed — no details are published until verified.</p>}
+          {e.demo === "print" && <PrintDemo onScanned={setScanned} />}
+          {e.demo === "device" && <DeviceDemo />}
+          {e.url && (
+            <a className="text-link" href={e.url} target="_blank" rel="noopener noreferrer">
+              Open the public source<span className="visually-hidden">: {e.title} (opens in a new tab)</span> <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          )}
+          {e.href && <a className="text-link" href={e.href}>Read the dossier <ArrowUpRight size={14} aria-hidden="true" /></a>}
+          <button type="button" className="hs-panel__close" onClick={close} aria-label={`Close: ${e.title}`}>
+            <X size={16} aria-hidden="true" />
+          </button>
+        </article>
+      ))}
     </Chapter>
   );
 }
 
-// ---------------------------------------------------------------- 07 · Contact
+// ---------------------------------------------------------------- 05 · Contact
 
 function CopyEmail() {
   const [state, setState] = useState("idle");
@@ -300,9 +359,9 @@ function CopyEmail() {
 
 export function ContactChapter() {
   return (
-    <Chapter id="contact" h="150vh" poster="archive" className="chapter--last" labelledBy="contact-title">
-      <div className="finale cue" style={cue(-1, 1.01)}>
-        <p className="chapter-label">05 · Contact</p>
+    <Chapter id="contact" h="150vh" poster="lab" className="chapter--last" labelledBy="contact-title">
+      <div className="finale cue" style={cue(-1, 1.01)} data-ui="">
+        <p className="chapter-label">04 · Contact</p>
         <h2 id="contact-title" className="finale__name">Sujal Pandey</h2>
         <p className="finale__role">Forensic Science Student</p>
         <p className="finale__line">Open to academic collaboration, internships and professional enquiries.</p>

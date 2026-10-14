@@ -1,7 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useState } from "react";
 import { useJourney } from "../journey/useJourney.js";
 import {
-  RoomChapter, EvidenceChapter, TransformChapter, LabChapter, TraceChapter, ArchiveChapter, ContactChapter,
+  RoomChapter, EvidenceChapter, TransformChapter, ArchiveChapter, ContactChapter,
 } from "../journey/Chapters.jsx";
 
 // three.js + the scene are loaded only in the browser, after the page is already readable.
@@ -14,7 +14,7 @@ class StageBoundary extends Component {
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-/** Home: one continuous journey — room → evidence → transformation → lab → trace → archive → contact. */
+/** Home: one continuous journey — room → evidence → transformation → digital archive → contact. */
 export default function Home() {
   const { mode, onReady, onFail } = useJourney();
   const [mountStage, setMountStage] = useState(false);
@@ -41,8 +41,6 @@ export default function Home() {
         <RoomChapter />
         <EvidenceChapter />
         <TransformChapter />
-        <LabChapter />
-        <TraceChapter />
         <ArchiveChapter />
         <ContactChapter />
       </main>

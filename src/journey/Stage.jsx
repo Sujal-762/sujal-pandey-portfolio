@@ -3,17 +3,22 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { journey, emit } from "./store.js";
 import Room from "./scene/Room.jsx";
-import Lab from "./scene/Lab.jsx";
-import Desk from "./scene/Desk.jsx";
+import ArchiveSpace from "./scene/ArchiveSpace.jsx";
 import Particles from "./scene/Particles.jsx";
 import Dust from "./scene/Dust.jsx";
 import CameraRig from "./scene/CameraRig.jsx";
 
+/**
+ * Starting quality from capabilities that actually affect GPU cost (screen size, pointer type, CPU
+ * threads, device memory where reported) — never the user-agent string. AdaptiveResolution then
+ * corrects it from measured frame times.
+ */
 function detectQuality() {
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   const small = Math.min(window.innerWidth, window.innerHeight) < 700;
   const cores = navigator.hardwareConcurrency || 4;
-  return coarse || small || cores <= 4 ? "low" : "high";
+  const memory = navigator.deviceMemory || 8;
+  return coarse || small || cores <= 4 || memory <= 4 ? "low" : "high";
 }
 
 /** Marks the stage ready after the first rendered frame (so the 2D poster can fade out). */
@@ -23,6 +28,37 @@ function ReadySignal({ onReady }) {
     if (done.current) return;
     done.current = true;
     requestAnimationFrame(() => onReady());
+  });
+  return null;
+}
+
+/** Stops rendering entirely while the tab is hidden, and resumes cleanly (no time jump). */
+function VisibilityPause() {
+  const { setFrameloop, clock } = useThree();
+  useEffect(() => {
+    const onChange = () => {
+      if (document.hidden) { setFrameloop("never"); clock.stop(); }
+      else { clock.start(); setFrameloop("always"); }
+    };
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, [setFrameloop, clock]);
+  return null;
+}
+
+/** Measures frame time and steps the render resolution down (or back up) to keep motion smooth. */
+function AdaptiveResolution({ min, max }) {
+  const { setDpr } = useThree();
+  const s = useRef({ dpr: max, acc: 0, n: 0, good: 0 });
+  useFrame((_, delta) => {
+    const st = s.current;
+    if (delta > 0.5) return; // ignore pauses / tab switches
+    st.acc += delta; st.n++;
+    if (st.acc < 1.5) return;
+    const avg = st.acc / st.n;
+    st.acc = 0; st.n = 0;
+    if (avg > 1 / 36 && st.dpr > min) { st.dpr = Math.max(min, +(st.dpr - 0.25).toFixed(2)); st.good = 0; setDpr(st.dpr); }
+    else if (avg < 1 / 55 && st.dpr < max && ++st.good >= 3) { st.dpr = Math.min(max, +(st.dpr + 0.25).toFixed(2)); st.good = 0; setDpr(st.dpr); }
   });
   return null;
 }
@@ -50,17 +86,21 @@ export default function Stage({ onReady, onFail }) {
     return () => { alive = false; };
   }, []);
 
-  useEffect(() => () => { journey.stageReady = false; emit(); }, []);
+  useEffect(() => () => { journey.stageReady = false; document.body.style.cursor = ""; emit(); }, []);
 
   if (!fontsReady) return null;
   const low = quality === "low";
+  const dpr = low ? [0.75, 1.4] : [1, 1.75];
 
   return (
     <Canvas
       className="stage__canvas"
       aria-hidden="true"
-      dpr={low ? [1, 1.4] : [1, 1.75]}
+      dpr={[dpr[0], Math.min(dpr[1], window.devicePixelRatio || 1)]}
       shadows={!low}
+      // Pointer events come from the whole page, so 3D objects stay clickable beneath the text overlay.
+      eventSource={document.getElementById("root")}
+      eventPrefix="client"
       gl={{ antialias: !low, powerPreference: "high-performance", alpha: false, stencil: false }}
       camera={{ fov: 42, near: 0.03, far: 120, position: [0, 1.85, 5.8] }}
       onCreated={({ gl }) => {
@@ -76,12 +116,13 @@ export default function Stage({ onReady, onFail }) {
         <hemisphereLight args={["#2a2222", "#060506", 0.25]} />
         <CameraRig />
         <Room quality={quality} />
-        <Lab />
-        <Desk quality={quality} />
-        <Particles count={low ? 2400 : 5200} />
+        <ArchiveSpace quality={quality} />
+        <Particles count={low ? 2600 : 5200} />
         <Dust count={low ? 220 : 520} />
         <ReadySignal onReady={() => { journey.stageReady = true; emit(); onReady?.(); }} />
         <ContextWatch onFail={onFail} />
+        <VisibilityPause />
+        <AdaptiveResolution min={dpr[0]} max={Math.min(dpr[1], window.devicePixelRatio || 1)} />
       </Suspense>
     </Canvas>
   );

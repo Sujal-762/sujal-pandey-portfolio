@@ -69,3 +69,13 @@ export const labAnchors = [
   { id: "centre", label: "Pattern centre", world: [0, 1.62, -23.9] },
   { id: "flow", label: "Ridge flow", world: [-0.95, 2.45, -23.9] },
 ];
+
+// Camera close-up for each evidence object when it is selected (position, look-at), in metres.
+const FOCUS = {
+  profile: { pos: [-0.12, 1.36, 0.86], look: [-0.08, 0.92, 0.28] },
+  csi: { pos: [0.36, 1.3, 0.64], look: [0.28, 0.9, 0.1] },
+  qde: { pos: [-0.6, 1.38, 0.48], look: [-0.66, 0.9, -0.06] },
+  bio: { pos: [0.98, 1.28, 0.36], look: [0.78, 0.92, -0.18] },
+  psych: { pos: [0.42, 1.92, -1.05], look: [0.38, 1.85, -3.15] },
+};
+hotspots.forEach((h) => { h.focus = FOCUS[h.id]; });

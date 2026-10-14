@@ -20,14 +20,17 @@ npm run check:publish  # same, but also fails while anything is unresolved (must
 npm run set-domain -- https://real-url   # set the real public URL once known
 ```
 
-> **Seeing the full motion:** the site follows your system's *reduce motion* setting. On Windows, turn on
-> **Settings → Accessibility → Visual effects → Animation effects**, otherwise you get the calm version.
+> **Motion:** the site follows your system's *reduce motion* setting (on Windows: **Settings → Accessibility → Visual
+> effects → Animation effects** off = reduced). Reduced motion gives **calm mode**: the scene keeps breathing (dust,
+> light, scans, helix — one shared ambient clock at lower amplitude and speed) but the camera cuts between still
+> shots instead of flying, with no parallax or intro. A hero notice and the nav **Motion** toggle let visitors opt in
+> to full motion (remembered per device).
 
 ## Architecture
 
 ```
 ┌──────────────────────── fixed WebGL stage (src/journey/Stage.jsx, lazy-loaded) ───────────────────────┐
-│ CameraRig · Room · Lab · Desk · Particles (one GPU system) · Dust                                      │
+│ CameraRig · Room (+ wireframe sweep) · ArchiveSpace (plates, helix, gyro, streams) · Particles · Dust   │
 └────────────────────────── reads journey.current (smoothed) every frame ───────────────────────────────┘
 ┌──────────────── scrolling DOM chapters (src/journey/Chapters.jsx) — all text, links, controls ─────────┐
 │ #top · #evidence · #transform · #lab · #trace · #archive · #contact   (each: tall section + sticky frame)│
@@ -65,7 +68,7 @@ npm run set-domain -- https://real-url   # set the real public URL once known
 
 ```
 src/journey/       store.js · timeline.js · useJourney.js · Stage.jsx · Chapters.jsx · Poster.jsx
-src/journey/scene/ CameraRig · Room · Lab · Desk · Particles · Dust · textures (procedural canvas art)
+src/journey/scene/ CameraRig · Room · ArchiveSpace · Particles · Dust · textures (procedural canvas art)
 src/content/       site.js (facts) · journey.js (hotspots, lab text) · caseStudies.js (PUBLISHED only)
                    projects.js · sources.js (background reading) · taxonomy.js
 src/pages/         Home · ArchivePage · CaseStudyPage · NotFound

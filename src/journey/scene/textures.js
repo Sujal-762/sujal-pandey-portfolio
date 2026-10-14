@@ -211,3 +211,100 @@ export function radialSprite() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
   return finish(c, { srgb: false });
 }
+
+/** Greedy word wrap; the last allowed line is truncated with an ellipsis if text remains. */
+function wrapLines(ctx, text, maxWidth, maxLines) {
+  const words = text.split(" ");
+  const lines = [];
+  let line = "";
+  let i = 0;
+  for (; i < words.length; i++) {
+    const test = line ? line + " " + words[i] : words[i];
+    if (ctx.measureText(test).width <= maxWidth || !line) { line = test; continue; }
+    lines.push(line);
+    line = words[i];
+    if (lines.length === maxLines) break;
+  }
+  if (lines.length < maxLines) { lines.push(line); return lines; }
+  let last = lines[maxLines - 1];
+  while (ctx.measureText(last + "…").width > maxWidth && last.includes(" ")) last = last.replace(/\s+\S*$/, "");
+  lines[maxLines - 1] = last + "…";
+  return lines;
+}
+
+/** One archive evidence plate (3D label). The DOM list carries the same text for accessibility. */
+export function archivePlate({ code, type, title, status, sealed }) {
+  const [c, ctx] = canvas(640, 380);
+  const g = ctx.createLinearGradient(0, 0, 0, 380);
+  g.addColorStop(0, sealed ? "rgba(26,22,14,0.92)" : "rgba(4,22,38,0.9)");
+  g.addColorStop(1, sealed ? "rgba(14,12,9,0.92)" : "rgba(2,10,20,0.92)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 640, 380);
+  ctx.strokeStyle = sealed ? "rgba(255,210,122,0.55)" : "rgba(70,216,232,0.55)"; ctx.lineWidth = 3;
+  ctx.strokeRect(1.5, 1.5, 637, 377);
+  // corner ticks
+  ctx.fillStyle = sealed ? "#ffd27a" : "#46d8e8";
+  [[0, 0], [620, 0], [0, 360], [620, 360]].forEach(([x, y]) => ctx.fillRect(x, y, 20, 20));
+  ctx.font = `500 22px ${FONT_MONO}`; ctx.fillStyle = sealed ? "#ffd27a" : "#46d8e8";
+  ctx.fillText(code, 36, 58);
+  ctx.fillStyle = "rgba(215,238,243,0.62)"; ctx.textAlign = "right";
+  ctx.fillText(type.toUpperCase(), 604, 58); ctx.textAlign = "left";
+  ctx.font = `400 50px ${FONT_SERIF}`; ctx.fillStyle = "#eef6f8";
+  wrapLines(ctx, title, 568, 3).forEach((l, i) => ctx.fillText(l, 36, 132 + i * 54));
+  ctx.font = `500 20px ${FONT_MONO}`;
+  const label = status.toUpperCase();
+  const w = ctx.measureText(label).width + 28;
+  ctx.strokeStyle = sealed ? "rgba(255,210,122,0.8)" : "rgba(70,216,232,0.8)"; ctx.lineWidth = 2;
+  ctx.strokeRect(36, 316, w, 38);
+  ctx.fillStyle = sealed ? "#ffd27a" : "#9feaf3"; ctx.fillText(label, 50, 342);
+  if (sealed) { ctx.fillStyle = "rgba(255,210,122,0.85)"; ctx.textAlign = "right"; ctx.fillText("SEALED", 604, 342); ctx.textAlign = "left"; }
+  return finish(c, { anisotropy: 8 });
+}
+
+/** Sealed evidence bag: clear polythene with a printed label block and a red tamper-evident strip. */
+export function evidenceBag() {
+  const [c, ctx] = canvas(512, 640);
+  ctx.clearRect(0, 0, 512, 640);
+  ctx.fillStyle = "rgba(225,232,236,0.16)"; ctx.fillRect(0, 0, 512, 640);
+  ctx.fillStyle = "rgba(143,29,36,0.9)"; ctx.fillRect(0, 26, 512, 46);
+  ctx.fillStyle = "#f3e9e6"; ctx.font = `600 22px ${FONT_MONO}`;
+  ctx.fillText("EVIDENCE · SEALED", 26, 57);
+  ctx.fillStyle = "rgba(236,231,221,0.94)"; ctx.fillRect(40, 110, 432, 250);
+  ctx.fillStyle = "#1c1a18"; ctx.font = `600 18px ${FONT_MONO}`;
+  ctx.fillText("ITEM  ·  PROP", 60, 148);
+  ctx.strokeStyle = "rgba(28,26,24,.35)"; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(60, 190 + i * 30); ctx.lineTo(452, 190 + i * 30); ctx.stroke(); }
+  ctx.fillStyle = "#8a1d22"; ctx.font = `14px ${FONT_MONO}`;
+  ctx.fillText("ILLUSTRATIVE · NO REAL ITEM", 60, 346);
+  // creases
+  ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 3;
+  [[30, 420, 480, 470], [10, 560, 500, 520], [200, 380, 260, 640]].forEach(([a, b, d, e]) => { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(d, e); ctx.stroke(); });
+  return finish(c);
+}
+
+/** Side label of an archive storage box. */
+export function boxLabel(seed = 1) {
+  const [c, ctx] = canvas(256, 160);
+  noise(ctx, 256, 160, seed, "#5a4a3a", 18, 6);
+  ctx.fillStyle = "rgba(233,227,214,0.92)"; ctx.fillRect(70, 34, 116, 64);
+  ctx.fillStyle = "#1c1a18"; ctx.font = `600 20px ${FONT_MONO}`; ctx.textAlign = "center";
+  ctx.fillText(`B-${String(seed * 37 % 900 + 100)}`, 128, 62);
+  ctx.fillStyle = "rgba(28,26,24,.6)"; ctx.fillRect(88, 76, 80, 5);
+  return finish(c);
+}
+
+/** Light falling through window blinds (used additively on the floor and wall). Linear, not sRGB. */
+export function blindsLight() {
+  const [c, ctx] = canvas(256, 256);
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 9; i++) {
+    const y = 18 + i * 25;
+    const g = ctx.createLinearGradient(0, y, 0, y + 14);
+    g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,1)"); g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, y, 256, 14);
+  }
+  // soft edges so the pattern has no hard frame
+  const v = ctx.createRadialGradient(128, 128, 40, 128, 128, 136);
+  v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.fillStyle = v; ctx.fillRect(0, 0, 256, 256);
+  return finish(c, { srgb: false });
+}

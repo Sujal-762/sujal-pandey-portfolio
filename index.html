@@ -7,10 +7,15 @@
          (scripts/seo.mjs). Do not hand-edit them here. -->
     <!--seo-head-->
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <!-- Reduced motion → the calm, static version of the journey (decided before first paint). -->
+    <!-- Motion preference, decided before first paint: the visitor's saved choice (Motion toggle) wins,
+         otherwise the operating system's reduced-motion setting. Reduced motion keeps the 3D scene but
+         removes camera flights and idle movement. -->
     <script>
       try {
-        if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("calm");
+        var pref = null;
+        try { pref = localStorage.getItem("sp-motion"); } catch (e) {}
+        var reduce = pref ? pref === "reduced" : matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduce) document.documentElement.classList.add("motion-reduced");
       } catch (e) {}
     </script>
     <!-- Without JavaScript: show every chapter as a normal, static page. -->

@@ -40,6 +40,7 @@ const { categories, projects } = await load("src/content/projects.js");
 const { allCaseStudies, caseStudies } = await load("src/content/caseStudies.js");
 const { backgroundReading } = await load("src/content/sources.js");
 const { hotspots } = await load("src/content/journey.js");
+const { archiveEntries } = await load("src/content/archive.js");
 const { DISCIPLINES } = await load("src/content/taxonomy.js");
 const { publicRoutes } = await load("src/lib/routes.js");
 const distFiles = await walk(dist);
@@ -153,7 +154,7 @@ for (const file of distFiles.filter((f) => f.endsWith(".html"))) {
   const live = html.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
   const body = live.slice(live.indexOf("<body"));
   const text = body.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ");
+    .replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, "\"").replace(/&quot;/g, '"').replace(/\s+/g, " ");
   const route = expectedPages.get(name);
 
   const h1s = live.match(/<h1[\s>]/g) || [];
@@ -204,13 +205,22 @@ for (const file of distFiles.filter((f) => f.endsWith(".html"))) {
       "no real case or evidence depicted", "illustrative props", "Fictional / illustrative data", "no real device was examined",
     ];
     for (const s of mustSay) if (!norm.includes(s.toLowerCase().replace(/-/g, " "))) errors.push(`${name}: crawlable text is missing "${s}"`);
-    for (const id of ["top", "evidence", "transform", "lab", "trace", "archive", "contact"]) {
+    for (const id of ["top", "evidence", "transform", "archive", "contact"]) {
       if (!new RegExp(`<section[^>]+id="${id}"`).test(live)) errors.push(`${name}: section #${id} missing from pre-rendered HTML`);
     }
-    // The lab chapter carries the machine-readable illustrative marker; the fictional timeline is labelled.
-    const lab = (live.match(/<section[^>]+id="lab"[\s\S]*?<\/section>/) || [""])[0];
-    if (!lab.includes("data-illustrative")) errors.push(`${name}: lab chapter is missing its illustrative-data label`);
-    if (!/Fictional timeline/.test(lab)) errors.push(`${name}: the device timeline is not labelled as fictional`);
+    // The archive is visible on the home page: every entry (and its detail text) must be in the crawlable HTML.
+    const archive = (live.match(/<section[^>]+id="archive"[\s\S]*?<\/section>/) || [""])[0];
+    const archiveText = archive.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, "\"").replace(/\s+/g, " ");
+    for (const e of archiveEntries) {
+      if (!archiveText.includes(e.title)) errors.push(`${name}: archive entry "${e.title}" is not in the pre-rendered archive`);
+      if (!archive.includes(`id="entry-${e.id}"`)) errors.push(`${name}: archive entry ${e.id} has no detail panel`);
+    }
+    // Demonstrations carry the machine-readable illustrative marker; the fictional timeline is labelled.
+    const demos = archiveEntries.filter((e) => e.demo).length;
+    if ((archive.match(/data-illustrative/g) || []).length < demos) errors.push(`${name}: an archive demonstration is missing its illustrative-data label`);
+    if (!/Fictional timeline/.test(archive)) errors.push(`${name}: the device timeline is not labelled as fictional`);
+    // Sealed slots must not carry names or details of unpublished work.
+    for (const e of archiveEntries.filter((x) => x.sealed)) if (e.href || e.url) errors.push(`archive.js: sealed entry ${e.id} must not link anywhere`);
     // 3D must stay a client-side enhancement: no canvas in the pre-rendered HTML.
     if (/<canvas/.test(live)) errors.push(`${name}: a canvas is in the pre-rendered HTML`);
     for (const need of [`mailto:${contacts.email}`, contacts.linkedin.url, contacts.github.url]) {

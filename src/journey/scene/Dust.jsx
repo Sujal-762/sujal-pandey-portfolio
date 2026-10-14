@@ -24,7 +24,7 @@ void main(){ float d = length(gl_PointCoord - 0.5); float a = (1.0 - smoothstep(
   #include <colorspace_fragment>
 }`;
 
-const COLOUR_KEYS = [[0, [1.0, 0.82, 0.7]], [2.4, [1.0, 0.75, 0.68]], [2.9, [0.4, 0.85, 0.95]], [4.4, [0.4, 0.85, 0.95]], [4.9, [1.0, 0.82, 0.72]], [6.99, [0.8, 0.75, 0.7]]];
+const COLOUR_KEYS = [[0, [1.0, 0.82, 0.7]], [2.4, [1.0, 0.75, 0.68]], [2.9, [0.4, 0.85, 0.95]], [4.99, [0.35, 0.7, 0.85]]];
 
 export default function Dust({ count }) {
   const { geometry, material } = useMemo(() => {
@@ -46,7 +46,7 @@ export default function Dust({ count }) {
   useFrame((state) => {
     const u = journey.current;
     material.uniforms.uCam.value.copy(state.camera.position);
-    material.uniforms.uTime.value = state.clock.elapsedTime;
+    material.uniforms.uTime.value = journey.time; // the shared ambient clock: slower in calm mode, never frozen
     material.uniforms.uColour.value.setRGB(...sampleKeys(COLOUR_KEYS, u));
     material.uniforms.uOpacity.value = u > 2.4 && u < 2.75 ? 0.25 : 0.6;
   });
