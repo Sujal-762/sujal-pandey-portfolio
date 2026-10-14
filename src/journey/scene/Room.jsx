@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { journey, setJourney } from "../store.js";
-import { CARD, TABLE_Y, EVIDENCE_RANGE, atmosphere, cardScan, smooth } from "../timeline.js";
+import { CARD, TABLE_Y, EVIDENCE_RANGE, BOARD_SHIFT, atmosphere, cardScan, smooth } from "../timeline.js";
 import * as tex from "./textures.js";
+import ProfileWall from "./ProfileWall.jsx";
 
 /** Disposes every texture in an object when the component unmounts. */
 function useDisposable(factory, deps = []) {
@@ -148,7 +149,8 @@ function edgesOf(root) {
 }
 
 // Storage shelving against the back wall (box positions are generated once, deterministically).
-const SHELVES = [{ x: -2.75, w: 1.5 }, { x: 2.95, w: 1.3 }];
+// One unit, left of the evidence board (the right-hand section of the wall holds the profile wall).
+const SHELVES = [{ x: -2.95, w: 1.3 }];
 const SHELF_Y = [0.12, 0.62, 1.12, 1.62, 2.12];
 function boxSlots() {
   const out = [];
@@ -342,7 +344,11 @@ export default function Room({ quality }) {
           <meshStandardMaterial map={t.box} color="#8d7c68" roughness={0.9} />
         </instancedMesh>
 
-        {/* Evidence board (selectable: forensic psychology) */}
+        {/* Profile wall: the right-hand section of the back wall */}
+        <ProfileWall quality={quality} />
+
+        {/* Evidence board (selectable: forensic psychology), set left of centre to make room for the profile wall */}
+        <group position={[BOARD_SHIFT, 0, 0]}>
         <Pickable id="psych">
           <mesh position={[0.15, 1.78, -3.17]}>
             <boxGeometry args={[3.0, 1.55, 0.04]} />
@@ -369,6 +375,7 @@ export default function Room({ quality }) {
         <mesh position={[0.15, 2.72, -3.0]}><boxGeometry args={[0.9, 0.035, 0.07]} /><meshStandardMaterial color="#121111" metalness={0.7} roughness={0.35} /></mesh>
         <spotLight ref={boardSpot} position={[0.15, 2.7, -2.75]} angle={0.95} penumbra={0.9} decay={2} distance={4} color="#ffd7b5" />
         <object3D ref={boardTarget} position={[0.15, 1.6, -3.17]} />
+        </group>
 
         {/* Table */}
         <mesh position={[0, TABLE_Y - 0.03, 0]} castShadow receiveShadow>
@@ -486,7 +493,8 @@ export default function Room({ quality }) {
         {/* Red practical light on the left wall */}
         <mesh position={[-4.15, 2.05, -2.0]}><boxGeometry args={[0.06, 0.34, 0.16]} /><meshStandardMaterial color="#300" emissive="#ff2a2a" emissiveIntensity={3} toneMapped={false} /></mesh>
         <pointLight ref={red} position={[-3.8, 1.9, -1.4]} color="#ff2b24" distance={10} decay={2} />
-        <pointLight ref={redFill} position={[2.8, 0.6, -2.6]} color="#a8141c" distance={7} decay={2} />
+        {/* Low red fill: grazes the floor and the base of the profile wall as an accent */}
+        <pointLight ref={redFill} position={[3.5, 0.2, -2.3]} color="#a8141c" distance={6} decay={2} />
       </group>
     </>
   );

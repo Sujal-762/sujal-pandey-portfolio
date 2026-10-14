@@ -7,7 +7,9 @@ import { setMotionPreference } from "../journey/useJourney.js";
 
 // `id` = a chapter on the home page; `href` = a separate page.
 export const NAV_SECTIONS = [
-  { id: "evidence", label: "About" },
+  { id: "profile", label: "About" },
+  { id: "achievements", label: "Achievements" },
+  { id: "leadership", label: "Leadership" },
   { id: "archive", label: "Archive" },
   { href: "/archive/", label: "Case studies" },
   { id: "contact", label: "Contact" },

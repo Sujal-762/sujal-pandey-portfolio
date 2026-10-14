@@ -1,0 +1,222 @@
+/* =========================================================
+   Personal record (About · Achievements · Leadership · Workshops), the profile-wall panel and media dialogs.
+   Normal-flow sections over the fixed 3D stage. Readable as plain HTML: no content depends on animation.
+   ========================================================= */
+
+/* ---------- Section shell: one continuous dark backdrop, fading into the 3D scene at either end ---------- */
+
+.casefile { position: relative; z-index: 1; padding: clamp(3.5rem, 9vh, 6rem) var(--gutter); background: rgba(9, 8, 8, 0.93); overflow-x: hidden; overflow-x: clip; }
+.casefile--first { padding-top: clamp(9rem, 26vh, 14rem); background: linear-gradient(180deg, rgba(9, 8, 8, 0) 0, rgba(9, 8, 8, 0.9) 22vh, rgba(9, 8, 8, 0.93) 100%); }
+.casefile--last { padding-bottom: clamp(9rem, 28vh, 15rem); background: linear-gradient(180deg, rgba(9, 8, 8, 0.93) 0, rgba(9, 8, 8, 0.9) calc(100% - 24vh), rgba(9, 8, 8, 0) 100%); }
+.casefile + .casefile .casefile__inner { border-top: 1px solid rgba(241, 235, 225, 0.08); padding-top: clamp(3rem, 7vh, 4.5rem); }
+.casefile__inner { max-width: var(--container); margin: 0 auto; }
+.casefile__head { margin-bottom: clamp(1.8rem, 4vh, 2.6rem); max-width: 46rem; }
+.casefile__label {
+  margin: 0 0 0.8rem; font-family: var(--mono); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--crimson-text);
+}
+.casefile__title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(2.3rem, 4.8vw, 3.8rem); line-height: 1; color: var(--warm); }
+.casefile__title:focus { outline: none; }
+.casefile__sub {
+  margin: 0 0 0.8rem; font-family: var(--mono); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--warm-2);
+}
+
+/* ---------- About ---------- */
+
+.about { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: clamp(2rem, 6vw, 5.5rem); align-items: center; }
+.portrait { position: relative; margin: 0; }
+/* Light AROUND the portrait (behind the frame), never over the photograph. */
+.portrait::before {
+  content: ""; position: absolute; inset: -12% -16%; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse 50% 46% at 50% 44%, rgba(255, 214, 178, 0.1), transparent 70%),
+              radial-gradient(ellipse 60% 40% at 50% 100%, rgba(143, 29, 36, 0.22), transparent 70%);
+}
+.portrait__frame {
+  position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: #141111;
+  border: 1px solid rgba(241, 235, 225, 0.2);
+  box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.95), 0 0 0 6px rgba(14, 12, 12, 0.95);
+}
+/*
+ * Crop of the original photograph at close to its native resolution (50% × 62.5% of it, centred on the face;
+ * proportions preserved: width set, height auto). No filter, transform, animation or overlay on the image —
+ * those caused the earlier soft, "motion-blurred" look.
+ */
+.portrait__img { position: absolute; width: 200%; max-width: none; height: auto; left: -48%; top: -12.7%; }
+.portrait__fallback { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #2a1c1c, #0f0c0c); }
+.portrait__fallback span { font-family: var(--serif); font-size: 5rem; color: var(--warm-3); }
+.portrait__caption { margin-top: 0.9rem; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--warm-3); }
+
+.about__lede { margin: 1.2rem 0 0.9rem; max-width: 38ch; font-family: var(--serif); font-size: clamp(1.35rem, 2.3vw, 1.8rem); line-height: 1.22; color: var(--warm); }
+.about__text { margin: 0 0 1.6rem; max-width: 60ch; color: var(--warm-2); }
+.facts { margin: 0 0 1.6rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); border-top: 1px solid rgba(241, 235, 225, 0.12); }
+.facts > div { padding: 0.8rem 1rem 0.8rem 0; border-bottom: 1px solid rgba(241, 235, 225, 0.12); }
+.facts dt, .meta dt { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--warm-3); }
+.facts dd { margin: 0.25rem 0 0; color: var(--warm); font-size: 0.98rem; line-height: 1.4; }
+.interests ul { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.interests li {
+  padding: 0.45rem 0.8rem; font-size: 0.92rem; color: var(--warm);
+  border: 1px solid rgba(241, 235, 225, 0.18); border-radius: 2px; background: rgba(241, 235, 225, 0.03);
+}
+
+/* ---------- Media (posters / photographs at their natural aspect ratio) ---------- */
+
+.media { position: relative; display: inline-block; max-width: 100%; vertical-align: top; background: #0d0c0c; border: 1px solid rgba(241, 235, 225, 0.16); box-shadow: 0 30px 60px -36px rgba(0, 0, 0, 0.95); }
+.media__img { display: block; width: 100%; height: auto; }
+.media__missing { display: grid; place-items: center; width: 100%; font-family: var(--mono); font-size: 0.7rem; color: var(--warm-3); }
+.media__expand {
+  position: absolute; right: 0.5rem; bottom: 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 36px; padding: 0 0.7rem; cursor: zoom-in;
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--warm); background: rgba(10, 9, 9, 0.82); border: 1px solid rgba(241, 235, 225, 0.25); border-radius: 2px;
+}
+.media__expand:hover { border-color: var(--warm-2); }
+.media__caption { margin-top: 0.6rem; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--warm-3); }
+
+/* ---------- Achievements & Recognition: both entries side by side on desktop ---------- */
+
+.achievements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.5rem, 3vw, 2.5rem); }
+.achievement {
+  display: grid; grid-template-rows: auto 1fr; gap: 1.4rem; padding: clamp(1.1rem, 2.4vw, 1.75rem);
+  background: linear-gradient(160deg, rgba(26, 21, 20, 0.85), rgba(14, 12, 12, 0.85)); border: 1px solid rgba(241, 235, 225, 0.09);
+}
+.achievement__media { margin: 0; text-align: center; }
+.achievement__media .media { width: min(100%, 300px); }
+.achievement__code { margin: 0 0 0.5rem; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--crimson-text); }
+.achievement__title { margin: 0 0 1rem; font-family: var(--serif); font-weight: 400; font-size: clamp(1.55rem, 2.4vw, 2.05rem); line-height: 1.1; color: var(--warm); }
+.meta { margin: 0 0 1rem; display: grid; gap: 0.55rem; }
+.meta > div { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0.8rem; align-items: baseline; }
+.meta dd { margin: 0; color: var(--warm); font-size: 0.95rem; line-height: 1.4; }
+.achievement__text { margin: 0; color: var(--warm-2); font-size: 0.95rem; }
+
+/* ---------- Leadership: Evidencia + events ---------- */
+
+.leadership { max-width: 52rem; }
+.leadership__name { letter-spacing: 0.04em; }
+.leadership__role { margin: 0.8rem 0 1.2rem; font-size: 1.1rem; font-weight: 500; color: var(--warm); }
+.leadership__role span { font-weight: 400; color: var(--warm-2); }
+.leadership__text { margin: 0 0 0.8rem; max-width: 62ch; color: var(--warm-2); }
+.events__context { margin: 0 0 1.4rem; max-width: 70ch; font-size: 0.9rem; color: var(--warm-3); }
+.events { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.5rem, 3vw, 2.5rem); }
+.event { margin: 0; }
+.event__media { margin: 0; }
+.event__media .media { width: 100%; }
+.event__body { margin-top: 1rem; }
+.event__title { margin: 0 0 0.35rem; font-family: var(--serif); font-weight: 400; font-size: clamp(1.4rem, 2.2vw, 1.8rem); line-height: 1.12; color: var(--warm); }
+.event__date { margin: 0; font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--crimson-text); }
+
+/* ---------- Workshops: an investigation-log list ---------- */
+
+.log { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgba(241, 235, 225, 0.12); }
+.log__row { display: grid; grid-template-columns: 11rem minmax(0, 1fr) auto; gap: 0.6rem 1.5rem; align-items: baseline; padding: 1.15rem 0; border-bottom: 1px solid rgba(241, 235, 225, 0.12); }
+.log__date { margin: 0; font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.1em; color: var(--warm-2); }
+.log__title { margin: 0 0 0.2rem; font-family: var(--sans); font-weight: 500; font-size: 1.05rem; line-height: 1.35; color: var(--warm); }
+.log__where { margin: 0; color: var(--warm-2); font-size: 0.92rem; }
+.log__link { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 44px; font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--warm); text-decoration: none; border-bottom: 1px solid rgba(224, 96, 90, 0.6); }
+.log__link:hover { color: var(--crimson-text); }
+
+/* ---------- Media dialogs (posters, photographs, the illustration) ---------- */
+
+.media-dialog { padding: 0; border: 0; background: transparent; max-width: min(94vw, 1100px); max-height: 94vh; overflow: visible; }
+.media-dialog::backdrop { background: rgba(5, 4, 4, 0.9); }
+.media-dialog__inner { position: relative; }
+.media-dialog__title {
+  margin: 0 3.4rem 0.6rem 0; min-height: 44px; display: flex; align-items: center;
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--warm-2);
+}
+.media-dialog__img { display: block; max-width: 100%; max-height: calc(94vh - 4.5rem); width: auto; height: auto; margin: 0 auto; border: 1px solid rgba(241, 235, 225, 0.2); }
+.media-dialog__note { margin: 0.6rem 0 0; font-size: 0.82rem; color: var(--warm-3); }
+.media-dialog__close {
+  position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
+  color: var(--warm); background: rgba(10, 9, 9, 0.9); border: 1px solid rgba(241, 235, 225, 0.25); border-radius: 2px;
+}
+.media-dialog__close:hover { border-color: var(--crimson-text); color: var(--crimson-text); }
+.sketch-dialog .media-dialog__img { max-height: calc(94vh - 7rem); }
+
+/* ---------- Hero additions: identity line + profile-wall button ---------- */
+
+.hero__id { display: flex; flex-wrap: wrap; gap: 0.3rem 0; margin: 1.1rem 0 0; font-size: clamp(0.82rem, 1.1vw, 0.95rem); color: var(--warm-2); }
+.hero__id span + span::before { content: "·"; margin: 0 0.6rem; color: var(--crimson-text); }
+.inspect-wall {
+  display: inline-flex; align-items: center; gap: 0.55rem; min-height: 44px; margin-top: 1.4rem; padding: 0 1rem; cursor: pointer;
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--warm); background: rgba(10, 9, 9, 0.55); border: 1px solid rgba(241, 235, 225, 0.28); border-radius: 2px;
+  transition: border-color 0.25s, background-color 0.25s;
+}
+.inspect-wall:hover { border-color: var(--crimson-text); background: rgba(143, 29, 36, 0.2); }
+.calm .inspect-wall { display: none; }
+
+/* While the wall is inspected, the hero copy steps aside for the close-up and its panel. */
+.chapter--top .hero, .chapter--top .invite, .chapter--top .motion-notice, .chapter--top .frame-caption { transition: opacity 0.45s var(--ease), visibility 0.45s; }
+html.wall-on .chapter--top .hero, html.wall-on .chapter--top .invite,
+html.wall-on .chapter--top .motion-notice, html.wall-on .chapter--top .frame-caption { opacity: 0 !important; visibility: hidden; }
+
+/* ---------- Profile-wall panel (shown during the close-up) ---------- */
+
+.wall-panel {
+  align-self: center; justify-self: start; position: relative; width: min(390px, 100%); max-height: calc(100% - 1rem); overflow-y: auto;
+  padding: 1.3rem 1.4rem 1.2rem; z-index: 3 !important;
+  background: rgba(12, 10, 10, 0.9); border: 1px solid rgba(241, 235, 225, 0.14); border-top: 2px solid var(--crimson-text);
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.9);
+}
+.wall-panel[hidden] { display: none; }
+.wall-panel__kicker { margin: 0 2.8rem 0.5rem 0; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--crimson-text); }
+.wall-panel__name { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 2.2rem; line-height: 1; color: var(--warm); }
+.wall-panel__name:focus { outline: none; }
+.wall-panel__discipline { margin: 0.35rem 0 0.8rem; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--warm-2); }
+.wall-panel__plate { margin: 0 0 1rem; padding: 0.7rem 0.85rem; list-style: none; background: rgba(241, 235, 225, 0.05); border: 1px solid rgba(241, 235, 225, 0.1); font-size: 0.9rem; color: var(--warm); }
+.wall-panel__plate li + li { margin-top: 0.15rem; color: var(--warm-2); }
+.wall-panel__group { padding: 0.75rem 0; border-top: 1px solid rgba(241, 235, 225, 0.1); }
+.wall-panel__group h3 { margin: 0 0 0.45rem; font-family: var(--mono); font-size: 0.62rem; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--warm-3); }
+.wall-panel__list { margin: 0; padding: 0 0 0 1rem; font-size: 0.9rem; color: var(--warm); }
+.wall-panel__list li + li { margin-top: 0.2rem; }
+.wall-panel__lead { margin: 0; font-size: 0.92rem; color: var(--warm); }
+.wall-panel__link {
+  display: inline-flex; align-items: center; gap: 0.35rem; min-height: 40px; padding: 0; cursor: pointer;
+  font: inherit; font-size: 0.86rem; color: var(--warm); background: none; border: 0; border-bottom: 1px solid rgba(224, 96, 90, 0.55); text-align: left;
+}
+.wall-panel__link span { color: var(--warm-3); }
+.wall-panel__link:hover { color: var(--crimson-text); }
+.wall-panel__list .wall-panel__link { min-height: 32px; }
+.wall-panel__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.9rem; border-top: 1px solid rgba(241, 235, 225, 0.1); }
+.wall-panel__btn {
+  display: inline-flex; align-items: center; gap: 0.45rem; min-height: 44px; padding: 0 0.9rem; cursor: pointer;
+  font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--warm); background: rgba(241, 235, 225, 0.04); border: 1px solid rgba(241, 235, 225, 0.22); border-radius: 2px;
+}
+.wall-panel__btn:hover { border-color: var(--crimson-text); }
+.wall-panel__close {
+  position: absolute; top: 0.75rem; right: 0.75rem; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
+  color: var(--warm); background: none; border: 1px solid rgba(241, 235, 225, 0.2); border-radius: 2px;
+}
+.wall-panel__close:hover { border-color: var(--crimson-text); color: var(--crimson-text); }
+
+/* ---------- Gentle entrance for section headings only (where supported; never hides content) ---------- */
+
+@supports (animation-timeline: view()) {
+  html:not(.motion-reduced) .casefile__head {
+    animation: casefile-in linear both; animation-timeline: view(); animation-range: entry 0% entry 50%;
+  }
+}
+@keyframes casefile-in { from { opacity: 0.2; transform: translateY(28px); } }
+
+/* ---------- Phones / narrow screens ---------- */
+
+@media (max-width: 899px) {
+  .achievements, .events { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .about { grid-template-columns: 1fr; gap: 2rem; }
+  .portrait { width: min(100%, 340px); }
+  /* Wider crop on phones: high-density screens would otherwise upscale the 1220 px original further. */
+  .portrait__img { width: 160%; left: -30.4%; top: -7.6%; }
+  .facts { grid-template-columns: 1fr; }
+  .meta > div { grid-template-columns: 1fr; gap: 0.1rem; }
+  .log__row { grid-template-columns: 1fr; gap: 0.3rem; }
+  .log__date:empty { display: none; }
+  .wall-panel { align-self: end; justify-self: stretch; width: auto; max-height: 56svh; margin-bottom: 0.25rem; padding: 1.1rem 1.1rem 1rem; }
+  .wall-panel__name { font-size: 1.8rem; }
+  .hero__id { font-size: 0.8rem; }
+  .chapter--top .kicker { display: none; } /* the wall and the name already say it; keeps the room clear */
+  .inspect-wall { margin-top: 1rem; }
+}

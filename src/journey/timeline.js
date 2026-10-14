@@ -87,6 +87,12 @@ export function particlePhases(u) {
 // Card scan line on the physical fingerprint card
 export const cardScan = (u) => smooth(1.98, 2.24, u);
 
+// Profile wall: right-hand section of the back wall, beside the evidence board (centre, size in metres)
+export const WALL = [2.68, 1.82, -3.165];
+export const BOARD_SHIFT = -0.6; // the evidence board sits left of centre, beside the profile wall
+export const WALL_SIZE = [2.8, 2.2];
+export const WALL_RANGE = [0, 0.75]; // the wall can be inspected from the opening view
+
 // Ranges in which object selection drives camera close-ups
 export const EVIDENCE_RANGE = [0.95, 2.05];
 export const ARCHIVE_RANGE = [2.95, 4.05];

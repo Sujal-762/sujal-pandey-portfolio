@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { journey, damp, CALM_AMP, CALM_SPEED } from "../store.js";
+import { journey, damp, setJourney, CALM_AMP, CALM_SPEED } from "../store.js";
 import {
-  CAMERA_KEYS, FOG_KEYS, restU, PRINT, EVIDENCE_RANGE, ARCHIVE_RANGE, atmosphere, sampleKeys, smooth,
+  CAMERA_KEYS, FOG_KEYS, restU, PRINT, WALL, WALL_SIZE, EVIDENCE_RANGE, ARCHIVE_RANGE, WALL_RANGE, atmosphere, sampleKeys, smooth,
 } from "../timeline.js";
 import { hotspots } from "../../content/journey.js";
 import { archiveEntries } from "../../content/archive.js";
@@ -28,6 +28,26 @@ const fPos = new THREE.Vector3();
 const fLook = new THREE.Vector3();
 const tmp = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+
+/**
+ * Camera pose for the profile-wall close-up, fitted to the screen. Desktop: square-on, with the wall shifted
+ * right of the HTML panel (left ≈30%). Phones: the whole wall in the upper part, above the bottom sheet.
+ */
+function wallPose(fov, aspect, portrait) {
+  const tv = Math.tan((fov * Math.PI) / 360);
+  const [wx, wy, wz] = WALL;
+  const [ww, wh] = WALL_SIZE;
+  if (!portrait) {
+    const d = Math.max((ww + 0.2) / 0.64 / (2 * tv * aspect), (wh + 0.3) / 0.86 / (2 * tv), 2.6);
+    const ox = 0.3 * d * tv * aspect;
+    fLook.set(wx - ox, wy, wz);
+    fPos.set(wx - ox, wy + 0.04, wz + d);
+  } else {
+    const d = Math.max((ww + 0.15) / 0.94 / (2 * tv * aspect), (wh + 0.2) / 0.42 / (2 * tv), 2.6);
+    fLook.set(wx, wy - 0.52 * d * tv, wz);
+    fPos.set(wx, wy + 0.1, wz + d);
+  }
+}
 
 /** Camera pose for a selected archive entry: its plate, or the print / phone for demonstrations. */
 function entryPose(id, portrait) {
@@ -134,8 +154,11 @@ export default function CameraRig() {
       if (inRoom > 0) {
         tmp.subVectors(camera.position, look).normalize();
         camera.position.addScaledVector(tmp, 0.75 * inRoom);
-        // Opening shot: the name sits low on phones, so compose the room in the upper half of the screen.
-        look.y -= 0.5 * (1 - smooth(0.55, 1.0, u));
+        // Opening shot: the name sits low on phones, so compose the room in the upper half of the screen,
+        // turned toward the profile wall (a narrow screen cannot hold the board, table and wall at once).
+        const opening = 1 - smooth(0.35, 0.95, u);
+        look.y -= 0.8 * (1 - smooth(0.55, 1.0, u));
+        look.x += 2.4 * opening; camera.position.x += 2.0 * opening;
       }
       const inArch = smooth(2.85, 3.05, u);
       if (inArch > 0) {
@@ -147,20 +170,31 @@ export default function CameraRig() {
     }
 
     // --- selection close-ups ------------------------------------------------------------------------
+    // The pose (fPos/fLook) is computed only while something is selected; while blending back out the last
+    // pose is reused as-is (offsets are applied once, so nothing drifts).
+    if (journey.wall && u > WALL_RANGE[1] + 0.05) setJourney({ wall: false }); // scrolled on: close the wall view
+    const aspect = size.width / size.height;
+    // Keep the subject clear of the detail panel: right panel on desktop, bottom sheet on phones.
+    const clearPanel = () => {
+      tmp.subVectors(fLook, fPos).normalize().cross(UP).normalize();
+      if (!portrait) fLook.addScaledVector(tmp, 0.32); else fLook.y -= 0.22;
+    };
     let want = 0;
-    if (journey.focus && inRange(u, EVIDENCE_RANGE) && FOCUS_BY_ID[journey.focus]) {
+    if (journey.wall && u <= WALL_RANGE[1]) {
+      wallPose(camera.fov, aspect, portrait);
+      want = 1;
+    } else if (journey.focus && inRange(u, EVIDENCE_RANGE) && FOCUS_BY_ID[journey.focus]) {
       const f = FOCUS_BY_ID[journey.focus];
       fPos.set(...f.pos); fLook.set(...f.look);
       if (portrait) { tmp.subVectors(fPos, fLook).multiplyScalar(0.45); fPos.add(tmp); }
+      clearPanel();
       want = 1;
     } else if (journey.entry && inRange(u, ARCHIVE_RANGE) && entryPose(journey.entry, portrait)) {
+      clearPanel();
       want = 1;
     }
     blend.current = reduced ? want : damp(blend.current, want, 2.6, dt);
     if (blend.current > 0.0005) {
-      // Keep the subject clear of the detail panel: right panel on desktop, bottom sheet on phones.
-      tmp.subVectors(fLook, fPos).normalize().cross(UP).normalize();
-      if (!portrait) fLook.addScaledVector(tmp, 0.32); else fLook.y -= 0.22;
       camera.position.lerp(fPos, blend.current);
       look.lerp(fLook, blend.current);
     }

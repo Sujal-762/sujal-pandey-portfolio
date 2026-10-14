@@ -46,7 +46,7 @@ export const hotspots = [
     label: "Evidence board",
     title: interest("psych").title,
     body: interest("psych").description,
-    world: [0.62, 2.2, -3.1],
+    world: [0.02, 2.2, -3.1], // evidence board (shifted left of centre: BOARD_SHIFT)
     fallback: [60, 24],
   },
 ];
@@ -76,6 +76,6 @@ const FOCUS = {
   csi: { pos: [0.36, 1.3, 0.64], look: [0.28, 0.9, 0.1] },
   qde: { pos: [-0.6, 1.38, 0.48], look: [-0.66, 0.9, -0.06] },
   bio: { pos: [0.98, 1.28, 0.36], look: [0.78, 0.92, -0.18] },
-  psych: { pos: [0.42, 1.92, -1.05], look: [0.38, 1.85, -3.15] },
+  psych: { pos: [-0.18, 1.92, -1.05], look: [-0.22, 1.85, -3.15] },
 };
 hotspots.forEach((h) => { h.focus = FOCUS[h.id]; });

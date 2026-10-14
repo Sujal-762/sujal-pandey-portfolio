@@ -11,6 +11,7 @@ import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./styles/base.css";
 import "./styles/journey.css";
 import "./styles/pages.css";
+import "./styles/dossier.css";
 
 import App from "./App.jsx";
 

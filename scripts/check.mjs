@@ -47,7 +47,9 @@ const distFiles = await walk(dist);
 const rel = (f) => relative(root, f).replaceAll("\\", "/");
 
 const PLACEHOLDER = /\[VERIFY|\bTODO\b|\bTBD\b|lorem ipsum|UNCONFIRMED|YOUR-DOMAIN/i;
-const UNPUBLISHED = /\bRAPID\b|Evidencia/i;
+// Evidencia is published: Sujal verified it as his club (name, role, description and events in
+// src/content/record.js). Its draft PROJECT write-up in drafts/projects.md stays internal. RAPID stays unpublished.
+const UNPUBLISHED = /\bRAPID\b/i;
 
 // =====================================================================
 // 1. Content validation (src/content)
@@ -63,7 +65,7 @@ function validateEntry(p, kind) {
   if (!Array.isArray(p.methods) || p.methods.length === 0) errors.push(`${where}: "methods" must list at least one item`);
   if (p.category && !catIds.has(p.category)) errors.push(`${where}: unknown category "${p.category}"`);
   if (PLACEHOLDER.test(JSON.stringify(p))) errors.push(`${where}: contains placeholder text`);
-  if (UNPUBLISHED.test(JSON.stringify(p))) errors.push(`${where}: mentions an unpublished draft project (RAPID/Evidencia)`);
+  if (UNPUBLISHED.test(JSON.stringify(p))) errors.push(`${where}: mentions an unpublished draft project (RAPID)`);
   for (const g of p.gallery ?? []) {
     if (g.src && !(typeof g.alt === "string" && g.alt.trim().length > 5)) errors.push(`${where}: gallery image ${g.src} needs descriptive alt text`);
     if (!g.src && !g.visual) errors.push(`${where}: gallery item needs "src" or "visual"`);
@@ -136,6 +138,20 @@ for (const r of backgroundReading) if (!/^https:\/\//.test(r.url)) errors.push(`
 for (const h of hotspots) {
   if (!h.title || !h.body) errors.push(`src/content/journey.js: hotspot "${h.id}" needs a title and body`);
   if (PLACEHOLDER.test(JSON.stringify(h)) || UNPUBLISHED.test(JSON.stringify(h))) errors.push(`src/content/journey.js: hotspot "${h.id}" contains placeholder or draft text`);
+}
+// Personal record (About, achievements, leadership, events, workshops, profile wall)
+{
+  const rec = await load("src/content/record.js");
+  const text = JSON.stringify(rec);
+  if (PLACEHOLDER.test(text) || UNPUBLISHED.test(text)) errors.push("src/content/record.js: contains placeholder or unpublished draft text");
+  for (const [kind, list] of [["achievement", rec.achievements], ["event", rec.events]]) {
+    for (const e of list) {
+      if (!e.title) errors.push(`src/content/record.js: ${kind} "${e.id}" needs a title`);
+      if (!(e.image?.alt?.length > 20) || !e.image.width || !e.image.height) errors.push(`src/content/record.js: ${kind} "${e.id}" needs image alt text and intrinsic size`);
+    }
+  }
+  if (rec.events.some((e) => !isDate(e.dateTime))) errors.push("src/content/record.js: every event needs a valid dateTime");
+  for (const w of rec.workshops) if (w.related && !rec.achievements.some((a) => a.id === w.related)) errors.push(`src/content/record.js: workshop "${w.id}" links to unknown achievement "${w.related}"`);
 }
 
 // =====================================================================
@@ -333,7 +349,7 @@ for (const file of distFiles) {
   }
   if (![".html", ".js", ".css", ".txt", ".xml", ".json", ".svg", ""].includes(extname(file))) continue;
   const content = await readFile(file, "utf8");
-  if (UNPUBLISHED.test(content)) errors.push(`${name}: contains the name of an unpublished draft project (RAPID/Evidencia)`);
+  if (UNPUBLISHED.test(content)) errors.push(`${name}: contains the name of an unpublished draft project (RAPID)`);
   if (/\[VERIFY/.test(content)) errors.push(`${name}: contains [VERIFY placeholder text`);
   if (/portrait-placeholder/.test(content)) errors.push(`${name}: references the placeholder portrait`);
   for (const t of draftTitles) if (content.includes(t)) errors.push(`${name}: contains unpublished case-study draft "${t}"`);

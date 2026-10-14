@@ -6,6 +6,8 @@ import { skipIntro, useAnchor, setMotionPreference } from "./useJourney.js";
 import { hotspots, labNotes, labAnchors } from "../content/journey.js";
 import { archiveEntries, ARCHIVE_FILTERS } from "../content/archive.js";
 import { contacts, profile } from "../content/site.js";
+import { wall } from "../content/record.js";
+import { InspectWallButton, WallPanel, SketchDialog } from "./WallUI.jsx";
 import { LinkedInMark } from "../components/ui.jsx";
 import { cx } from "../lib/hooks.js";
 
@@ -75,12 +77,18 @@ export function RoomChapter() {
           <span>Forensic Science Student</span>
           <span>Aspiring Crime Scene Investigator</span>
         </p>
+        <p className="hero__id cue" style={cue(-1, 0.62)}>
+          {wall.plate.map((l, i) => <span key={l}>{i === 2 ? l.replace("Expected Graduation:", "Expected graduation") : l}</span>)}
+        </p>
+        <div className="cue" style={cue(-1, 0.6)}><InspectWallButton /></div>
       </div>
       <a className="invite cue" style={cue(-1, 0.45)} href="#evidence">
         Enter the scene <ArrowDown size={15} aria-hidden="true" />
       </a>
       <button type="button" className="skip-intro" onClick={skipIntro} data-ui="">Skip intro</button>
       <MotionNotice />
+      <WallPanel />
+      <SketchDialog />
       <p className="frame-caption">Illustrative set · no real case or evidence depicted</p>
     </Chapter>
   );

@@ -68,13 +68,17 @@ npm run set-domain -- https://real-url   # set the real public URL once known
 
 ```
 src/journey/       store.js · timeline.js · useJourney.js · Stage.jsx · Chapters.jsx · Poster.jsx
-src/journey/scene/ CameraRig · Room · ArchiveSpace · Particles · Dust · textures (procedural canvas art)
-src/content/       site.js (facts) · journey.js (hotspots, lab text) · caseStudies.js (PUBLISHED only)
+src/journey/scene/ CameraRig · Room · ProfileWall · ArchiveSpace · Particles · Dust · textures (procedural canvas art)
+src/journey/       Dossier.jsx (About · Achievements · Leadership/Evidencia · Workshops) · WallUI.jsx (wall panel, sketch)
+src/content/       site.js (facts) · record.js (about, achievements, Evidencia, events, workshops, wall text)
+                   journey.js (hotspots, lab text) · caseStudies.js (PUBLISHED only)
+src/assets/        portrait/ (About only) · achievements/ · evidencia/ · sketch/ (generated illustration)
                    projects.js · sources.js (background reading) · taxonomy.js
 src/pages/         Home · ArchivePage · CaseStudyPage · NotFound
 src/styles/        base.css · journey.css · pages.css
 scripts/           seo.mjs · prerender.mjs · check.mjs · set-domain.mjs · og-image.html
-drafts/            INTERNAL, git-ignored, never imported: projects.md (RAPID, Evidencia), case-studies.md
+                   draw-sketch.mjs (regenerates the original illustrated portrait SVG)
+drafts/            INTERNAL, git-ignored, never imported: projects.md (RAPID; Evidencia project draft), case-studies.md
 ```
 
 ### Dependencies added in this redesign
@@ -106,7 +110,8 @@ drafts/            INTERNAL, git-ignored, never imported: projects.md (RAPID, Ev
 - Archive: "Dossiers in preparation" while empty; links to every published case and background source.
 - Alt text, unique ids, ARIA references, anchors (incl. `/#chapter` from other pages), local files, https +
   `noopener` external links, mailto format.
-- Every deployed file: no `RAPID`/`Evidencia`, `[VERIFY`, unpublished case titles or internal folders.
+- Every deployed file: no `RAPID`, `[VERIFY`, unpublished case titles or internal folders. (Evidencia is published
+  as Sujal's verified club in `src/content/record.js`; its project draft in `drafts/` stays internal.)
 - `robots.txt` / `sitemap.xml` consistent with the canonical domain and the exact public routes.
 
 ## Remaining publication blockers and decisions
@@ -114,7 +119,8 @@ drafts/            INTERNAL, git-ignored, never imported: projects.md (RAPID, Ev
 1. **Domain — BLOCKS PUBLISHING.** `siteUrl` is the placeholder `https://YOUR-DOMAIN.example`. When known:
    `npm run set-domain -- https://real-url` → `npm run check:publish` → deploy `dist/`.
 2. **Case studies** — none yet (archive shows "Dossiers in preparation").
-3. **RAPID and Evidencia** — unverified; kept in `drafts/projects.md` only.
+3. **RAPID** — unverified; kept in `drafts/projects.md` only. (Evidencia: club, role, description and events verified
+   and published; the draft *project* write-up stays in `drafts/`.)
 4. **Portrait** — to be supplied later as a local asset; none used now (no generated faces).
 5. **Wording review** — hotspot texts (`src/content/journey.js`), lab notes and the fictional timeline,
    captions, the contact line. "Third year" needs a yearly update.

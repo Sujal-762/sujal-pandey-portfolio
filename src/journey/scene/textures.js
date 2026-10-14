@@ -308,3 +308,141 @@ export function blindsLight() {
   ctx.fillStyle = v; ctx.fillRect(0, 0, 256, 256);
   return finish(c, { srgb: false });
 }
+
+// ---------------------------------------------------------------- Profile wall (3D room)
+// Text is drawn large (≈1000–1500 px per metre) so it stays crisp in the camera close-up.
+
+const FONT_SANS = '"IBM Plex Sans", system-ui, sans-serif';
+
+/** Text with letter spacing (canvas letterSpacing is not available everywhere). */
+function spaced(ctx, text, x, y, spacing, align = "left") {
+  const widths = [...text].map((ch) => ctx.measureText(ch).width);
+  const total = widths.reduce((a, b) => a + b, 0) + spacing * (text.length - 1);
+  let cx = align === "center" ? x - total / 2 : align === "right" ? x - total : x;
+  const prev = ctx.textAlign; ctx.textAlign = "left";
+  [...text].forEach((ch, i) => { ctx.fillText(ch, cx, y); cx += widths[i] + spacing; });
+  ctx.textAlign = prev;
+  return total;
+}
+
+/** Word-wrapped lines within maxWidth (no truncation). */
+function wrap(ctx, text, maxWidth) {
+  const out = [];
+  let line = "";
+  for (const w of text.split(" ")) {
+    const test = line ? `${line} ${w}` : w;
+    if (ctx.measureText(test).width <= maxWidth || !line) line = test;
+    else { out.push(line); line = w; }
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+/** Name lettering applied directly to the wall panel (transparent background). 1500 × 800 = 1.5 × 0.8 m. */
+export function wallName({ name, discipline }) {
+  const [c, ctx] = canvas(1500, 800);
+  ctx.clearRect(0, 0, 1500, 800);
+  ctx.fillStyle = "#efe8dc";
+  ctx.font = `400 300px ${FONT_SERIF}`;
+  ctx.textBaseline = "alphabetic";
+  spaced(ctx, name[0], 20, 270, 10);
+  spaced(ctx, name[1], 20, 545, 10);
+  ctx.fillStyle = "#c8443f";
+  ctx.fillRect(24, 618, 90, 6);
+  ctx.fillStyle = "#d9d1c4";
+  ctx.font = `500 62px ${FONT_MONO}`;
+  spaced(ctx, discipline, 140, 645, 18);
+  return finish(c, { anisotropy: 8 });
+}
+
+/** Engraved brushed-metal information plate. 1360 × 400 = 1.36 × 0.4 m. */
+export function wallPlate(lines) {
+  const [c, ctx] = canvas(1360, 400);
+  noise(ctx, 1360, 400, 41, "#a59f95", 12, 4);
+  const rnd = mulberry32(5);
+  for (let i = 0; i < 900; i++) { // brushing
+    ctx.strokeStyle = `rgba(255,255,255,${rnd() * 0.05})`;
+    const y = rnd() * 400;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1360, y + (rnd() - 0.5) * 2); ctx.stroke();
+  }
+  const g = ctx.createLinearGradient(0, 0, 0, 400);
+  g.addColorStop(0, "rgba(255,255,255,0.12)"); g.addColorStop(1, "rgba(0,0,0,0.18)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1360, 400);
+  ctx.strokeStyle = "rgba(20,18,16,0.55)"; ctx.lineWidth = 4; ctx.strokeRect(14, 14, 1332, 372);
+  // engraved text: dark fill with a light lower edge
+  const engrave = (text, y, font) => {
+    ctx.font = font;
+    ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillText(text, 62, y + 2);
+    ctx.fillStyle = "#0e0d0b"; ctx.fillText(text, 60, y);
+  };
+  engrave(lines[0], 128, `600 72px ${FONT_SANS}`);
+  engrave(lines[1], 226, `400 60px ${FONT_SANS}`);
+  engrave(lines[2], 318, `500 46px ${FONT_MONO}`);
+  ctx.fillStyle = "#1b1916";
+  for (const [x, y] of [[36, 36], [1324, 36], [36, 364], [1324, 364]]) { ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill(); }
+  return finish(c, { anisotropy: 8 });
+}
+
+/**
+ * A pinned paper card with an evidence-style tag. 1260 × 840 = 0.84 × 0.56 m.
+ * Returns the texture and the vertical band (0..1 from the top) of each item, for click regions.
+ */
+export function wallCard({ tag, heading, items, sub }) {
+  const W = 1260, H = 840;
+  const [c, ctx] = canvas(W, H);
+  noise(ctx, W, H, tag.length * 7 + heading.length, "#e6e0d3", 9, 10);
+  ctx.strokeStyle = "rgba(28,26,24,.18)"; ctx.lineWidth = 2; ctx.strokeRect(10, 10, W - 20, H - 20);
+  // evidence-style tag
+  ctx.fillStyle = "#a3242c"; ctx.fillRect(56, 54, 132, 70);
+  ctx.fillStyle = "#f6efe9"; ctx.font = `600 40px ${FONT_MONO}`; ctx.textAlign = "center";
+  ctx.fillText(tag, 122, 102); ctx.textAlign = "left";
+  ctx.fillStyle = "#1c1a18"; ctx.font = `600 50px ${FONT_MONO}`;
+  spaced(ctx, heading, 214, 106, 7);
+  ctx.fillStyle = "rgba(28,26,24,.3)"; ctx.fillRect(56, 156, W - 112, 3);
+  const bands = [];
+  let y = 236;
+  if (sub) { // leadership: a large name and a role line
+    ctx.fillStyle = "#1c1a18"; ctx.font = `400 150px ${FONT_SERIF}`;
+    spaced(ctx, sub.name, 60, y + 120, 12);
+    ctx.fillStyle = "#8a1d22"; ctx.font = `600 66px ${FONT_SANS}`;
+    ctx.fillText(sub.role, 64, y + 250);
+    bands.push([0.25, 0.75]);
+  }
+  ctx.font = `500 56px ${FONT_SANS}`;
+  for (const item of items) {
+    const lines = wrap(ctx, item, W - 200);
+    const top = y;
+    ctx.fillStyle = "#a3242c"; ctx.fillRect(64, y - 26, 16, 16);
+    ctx.fillStyle = "#1c1a18";
+    lines.forEach((l, i) => ctx.fillText(l, 108, y + i * 68));
+    y += lines.length * 68 + 36;
+    bands.push([(top - 60) / H, (y - 40) / H]);
+  }
+  return { texture: finish(c, { anisotropy: 8 }), bands };
+}
+
+/** Small brass caption plate. 840 × 140 = 0.42 × 0.07 m. */
+export function brassLabel(text) {
+  const [c, ctx] = canvas(840, 140);
+  const g = ctx.createLinearGradient(0, 0, 0, 140);
+  g.addColorStop(0, "#b39a63"); g.addColorStop(0.5, "#8f7745"); g.addColorStop(1, "#6f5a31");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 840, 140);
+  ctx.fillStyle = "#231c10"; ctx.font = `500 44px ${FONT_MONO}`; ctx.textAlign = "center";
+  spaced(ctx, text, 420, 86, 8, "center");
+  return finish(c);
+}
+
+/** Loads an SVG (or any image URL) into a CanvasTexture at a fixed size. Resolves null on failure. */
+export function imageTexture(url, w, h) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      const [c, ctx] = canvas(w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(finish(c, { anisotropy: 8 }));
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}

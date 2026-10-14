@@ -13,6 +13,8 @@ export const journey = {
   motionFromSystem: false, // calm because of the OS reduced-motion setting (no choice saved on this site)
   time: 0,             // ambient clock (s): advanced once per frame by the camera rig, slower in calm mode
   amp: 1,              // ambient motion amplitude: 1 full, CALM_AMP calm (eased, never a hard switch)
+  wall: false,         // camera close-up on the profile wall (opening view) + its HTML panel
+  sketch: false,       // the enlarged illustrated portrait dialog is open
   focus: null,         // evidence object id the camera is examining (room)
   hover: null,         // evidence object or archive entry under the pointer / keyboard focus
   entry: null,         // selected archive entry id

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CHAPTERS, journey, measureTarget, setJourney } from "./store.js";
+import { goTo } from "../lib/hooks.js";
 
 /** Can this browser create a WebGL context at all? */
 function webglAvailable() {
@@ -123,6 +124,25 @@ export function skipIntro() {
     window.scrollTo({ top: el.offsetTop, behavior: "auto" });
     document.getElementById("evidence-title")?.focus({ preventScroll: true });
   }
+}
+
+// Where each part of the profile wall leads (3D regions and the wall panel's buttons share this).
+const WALL_TARGETS = {
+  about: ["profile", "profile-title"],
+  achievements: ["achievements", "achievements-title"],
+  leadership: ["leadership", "leadership-title"],
+  archive: ["archive", "archive-title"],
+  interests: ["profile", "profile-title"],
+};
+
+/** Acts on a profile-wall region: the sketch opens the illustration; everything else navigates. */
+export function openWallTarget(id) {
+  if (id === "sketch") { setJourney({ sketch: true }); return; }
+  const t = WALL_TARGETS[id];
+  if (!t) return;
+  setJourney({ wall: false, hover: null });
+  document.body.style.cursor = "";
+  goTo(t[0], t[1]);
 }
 
 /** Registers a DOM element whose position follows a 3D world point (projected by the camera rig). */
