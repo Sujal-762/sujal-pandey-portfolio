@@ -8,7 +8,8 @@ export const site = {
   // UNRESOLVED: placeholder until the real public URL is known.
   // Change only with: npm run set-domain -- https://real-url
   siteUrl: "https://sujalpandey.in",
-  lastModified: "2026-10-14",
+  // Modification dates (ProfilePage dateModified, sitemap <lastmod>) are not kept here: they are read from git
+  // at build time by scripts/content-dates.mjs, and omitted when they cannot be determined reliably.
   lang: "en-IN",
   locale: "en_IN",
   title: "Sujal Pandey – Forensic Science Student & Aspiring CSI",

@@ -1,7 +1,10 @@
 // Build-time SEO generation: per-route <head> tags, JSON-LD, robots.txt and sitemap.xml.
 // All values come from src/content (confirmed facts and published case studies only).
+// Dates are genuine content-modification times from git (scripts/content-dates.mjs) and are omitted —
+// never guessed — when they cannot be determined reliably.
 import { site, profile, contacts } from "../src/content/site.js";
 import { disciplineLabel } from "../src/content/taxonomy.js";
+import { contentDate } from "./content-dates.mjs";
 
 const esc = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -9,7 +12,8 @@ const esc = (s) =>
 const abs = (path) => `${site.siteUrl}${path}`;
 const personId = () => `${site.siteUrl}/#person`;
 
-function personNode() {
+/** opts.personImage: absolute URL of the deployed portrait, located and verified by prerender.mjs. */
+function personNode({ personImage } = {}) {
   return {
     "@type": "Person",
     "@id": personId(),
@@ -26,10 +30,11 @@ function personNode() {
       url: profile.institutionUrl,
     },
     sameAs: [contacts.linkedin.url, contacts.github.url],
+    ...(personImage && { image: personImage }),
   };
 }
 
-export function jsonLd(route) {
+export function jsonLd(route, opts = {}) {
   if (route.page === "archive") {
     return {
       "@context": "https://schema.org",
@@ -42,7 +47,7 @@ export function jsonLd(route) {
           inLanguage: site.lang,
           author: { "@id": personId() },
         },
-        personNode(),
+        personNode(opts),
       ],
     };
   }
@@ -63,7 +68,7 @@ export function jsonLd(route) {
           about: c.disciplines.map(disciplineLabel),
           citation: c.references.map((r) => r.url),
         },
-        personNode(),
+        personNode(opts),
       ],
     };
   }
@@ -76,10 +81,11 @@ export function jsonLd(route) {
         url: `${site.siteUrl}/`,
         name: site.title,
         inLanguage: site.lang,
-        dateModified: site.lastModified,
+        // Optional: only a genuine ISO 8601 date-time with offset, otherwise left out.
+        ...(contentDate("profile") && { dateModified: contentDate("profile") }),
         mainEntity: { "@id": personId() },
       },
-      personNode(),
+      personNode(opts),
     ],
   };
 }
@@ -103,11 +109,11 @@ export function routeMeta(route) {
   return { title: site.title, description: site.description, ogDescription: site.ogDescription, ogType: "profile" };
 }
 
-export function headTags(route) {
+export function headTags(route, opts = {}) {
   const meta = routeMeta(route);
   const url = abs(route.path);
   const image = abs(site.ogImage);
-  const ld = JSON.stringify(jsonLd(route), null, 2).replace(/</g, "\\u003c");
+  const ld = JSON.stringify(jsonLd(route, opts), null, 2).replace(/</g, "\\u003c");
   const tags = [
     `<title>${esc(meta.title)}</title>`,
     `<meta name="description" content="${esc(meta.description)}">`,
@@ -137,16 +143,23 @@ export function headTags(route) {
 
 export const robotsTxt = () => `User-agent: *\nAllow: /\n\nSitemap: ${site.siteUrl}/sitemap.xml\n`;
 
+/** Genuine last-modification time of a route's content, or null (then <lastmod> is omitted). */
+function routeLastmod(r) {
+  if (r.page === "case") return r.caseStudy.verification.dateVerified;
+  return contentDate(r.page === "archive" ? "archive" : "home");
+}
+
 export const sitemapXml = (routes) =>
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${routes
-  .map(
-    (r) => `  <url>
-    <loc>${esc(abs(r.path))}</loc>
-    <lastmod>${esc(r.page === "case" ? r.caseStudy.verification.dateVerified : site.lastModified)}</lastmod>
-  </url>`
-  )
+  .map((r) => {
+    const lastmod = routeLastmod(r);
+    return `  <url>
+    <loc>${esc(abs(r.path))}</loc>${lastmod ? `
+    <lastmod>${esc(lastmod)}</lastmod>` : ""}
+  </url>`;
+  })
   .join("\n")}
 </urlset>
 `;

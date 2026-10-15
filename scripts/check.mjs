@@ -5,6 +5,7 @@
 import { readFile, readdir, access } from "node:fs/promises";
 import { join, resolve, relative, extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ISO_DATETIME } from "./content-dates.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const dist = join(root, "dist");
@@ -18,6 +19,8 @@ const onOrigin = (url, origin) => { try { return new URL(url).origin === origin;
 const load = (p) => import(pathToFileURL(join(root, p)).href);
 const isDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 const notFuture = (s) => Date.parse(s) <= Date.now() + 86400000;
+// Full ISO 8601 date-time with an explicit offset (what Google expects for ProfilePage dateModified).
+const isDateTime = (s) => typeof s === "string" && ISO_DATETIME.test(s) && !Number.isNaN(Date.parse(s));
 const nonEmptyStrings = (a) => Array.isArray(a) && a.length > 0 && a.every((x) => typeof x === "string" && x.trim());
 
 async function walk(dir) {
@@ -285,6 +288,14 @@ for (const file of distFiles.filter((f) => f.endsWith(".html"))) {
     const need = route?.page === "case" ? ["Article", "Person"] : route?.page === "archive" ? ["CollectionPage", "Person"] : ["ProfilePage", "Person"];
     for (const t of need) if (!types.includes(t)) errors.push(`${name}: JSON-LD has no ${t}`);
     for (const node of nodes) {
+      // Dates: optional, but when present they must be genuine and well-formed (never silently accepted).
+      for (const key of ["dateModified", "dateCreated", "datePublished"]) {
+        if (!(key in node)) continue;
+        const v = node[key];
+        const okFormat = node["@type"] === "ProfilePage" ? isDateTime(v) : isDate(v) || isDateTime(v);
+        if (!okFormat) errors.push(`${name}: JSON-LD ${node["@type"]} ${key} "${v}" is not a valid ISO 8601 ${node["@type"] === "ProfilePage" ? "date-time with timezone" : "date"}`);
+        else if (!notFuture(v)) errors.push(`${name}: JSON-LD ${node["@type"]} ${key} ${v} is in the future`);
+      }
       for (const key of ["@id", "url"]) {
         if (origin && typeof node[key] === "string" && !onOrigin(node[key], origin)) {
           errors.push(`${name}: JSON-LD ${node["@type"]} ${key} is not on the canonical origin`);
@@ -292,6 +303,14 @@ for (const file of distFiles.filter((f) => f.endsWith(".html"))) {
       }
       if (node["@type"] !== "Person") continue;
       if (node.name !== profile.name) errors.push(`${name}: JSON-LD Person name is not "${profile.name}"`);
+      if ("image" in node) {
+        const img = node.image;
+        if (typeof img !== "string" || !onOrigin(img, origin)) errors.push(`${name}: JSON-LD Person image must be a URL on the canonical origin`);
+        else if (!(await exists(join(dist, new URL(img).pathname)))) errors.push(`${name}: JSON-LD Person image ${img} is not in dist/`);
+        else if (types.includes("ProfilePage") && !live.includes(`src="${new URL(img).pathname}"`)) {
+          errors.push(`${name}: JSON-LD Person image ${img} is not the portrait shown on the page`);
+        }
+      }
       if (node.jobTitle || node.hasCredential || node.award || node.hasOccupation || node.worksFor) {
         errors.push(`${name}: JSON-LD Person claims a job, credential, employer or award`);
       }
@@ -379,7 +398,7 @@ if (homeCanonical) {
       if (!expected.includes(loc)) errors.push(`dist/sitemap.xml lists ${loc}, which is not a public route`);
     }
     for (const m of sitemap.matchAll(/<lastmod>([^<]*)<\/lastmod>/g)) {
-      if (!isDate(m[1])) errors.push(`dist/sitemap.xml: invalid <lastmod> ${m[1]}`);
+      if (!isDate(m[1]) && !isDateTime(m[1])) errors.push(`dist/sitemap.xml: invalid <lastmod> ${m[1]} (W3C date or date-time with timezone)`);
       else if (!notFuture(m[1])) errors.push(`dist/sitemap.xml: <lastmod> ${m[1]} is in the future`);
     }
   }
