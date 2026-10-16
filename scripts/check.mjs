@@ -287,6 +287,25 @@ for (const file of distFiles.filter((f) => f.endsWith(".html"))) {
     const types = nodes.map((n) => n["@type"]);
     const need = route?.page === "case" ? ["Article", "Person"] : route?.page === "archive" ? ["CollectionPage", "Person"] : ["ProfilePage", "Person"];
     for (const t of need) if (!types.includes(t)) errors.push(`${name}: JSON-LD has no ${t}`);
+    // Identity graph: one Person with the stable id, every @id reference resolvable within the graph.
+    const ids = new Set(nodes.map((n) => n["@id"]).filter(Boolean));
+    const persons = nodes.filter((n) => n["@type"] === "Person");
+    if (persons.length > 1) errors.push(`${name}: JSON-LD has ${persons.length} Person nodes (expected one)`);
+    if (origin && persons[0] && persons[0]["@id"] !== `${origin}/#person`) errors.push(`${name}: JSON-LD Person @id should be ${origin}/#person`);
+    for (const node of nodes) {
+      for (const key of ["mainEntity", "isPartOf", "author"]) {
+        const ref = node[key]?.["@id"];
+        if (ref && !ids.has(ref)) errors.push(`${name}: JSON-LD ${node["@type"]}.${key} points to ${ref}, which is not in the graph`);
+      }
+      if (node.dateCreated && node.dateModified && Date.parse(node.dateCreated) > Date.parse(node.dateModified)) {
+        errors.push(`${name}: JSON-LD ${node["@type"]} dateCreated is after dateModified`);
+      }
+    }
+    if (route?.page === "home") {
+      const site = nodes.find((n) => n["@type"] === "WebSite");
+      if (!site) errors.push(`${name}: JSON-LD has no WebSite (used by Google for the site name)`);
+      else if (site.url !== `${origin}/` || site.name !== profile.name) errors.push(`${name}: JSON-LD WebSite must have url ${origin}/ and name "${profile.name}"`);
+    }
     for (const node of nodes) {
       // Dates: optional, but when present they must be genuine and well-formed (never silently accepted).
       for (const key of ["dateModified", "dateCreated", "datePublished"]) {

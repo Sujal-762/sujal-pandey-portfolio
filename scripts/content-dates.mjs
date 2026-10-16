@@ -42,11 +42,27 @@ function git(args) {
 const cache = new Map();
 const notes = new Map();
 
+// Cloudflare Pages builds from a shallow clone, so production builds had no history and omitted every date
+// (observed on the live site after d63801b). There — and only there (CF_PAGES=1) — deepen the clone once from the
+// public origin. If that fails, the rules above still apply: the dates are omitted, never guessed.
+let deepened = false;
+function ensureHistory() {
+  if (deepened) return;
+  deepened = true;
+  if (process.env.CF_PAGES !== "1" || git(["rev-parse", "--is-shallow-repository"]) !== "true") return;
+  try {
+    execFileSync("git", ["fetch", "--unshallow", "--quiet", "origin"], { cwd: root, stdio: "ignore", timeout: 60000 });
+  } catch {
+    /* network or permission failure: stay shallow → dates omitted */
+  }
+}
+
 /** Last genuine modification time of the given paths, or null (see the rules at the top of this file). */
 export function contentDate(key) {
   if (cache.has(key)) return cache.get(key);
   const paths = CONTENT_PATHS[key];
   let value = null;
+  ensureHistory();
   const shallow = git(["rev-parse", "--is-shallow-repository"]);
   if (shallow === null) notes.set(key, "git history unavailable");
   else if (shallow !== "false") notes.set(key, "shallow clone (incomplete history)");
@@ -64,10 +80,29 @@ export function contentDate(key) {
   return value;
 }
 
+/**
+ * When the content was first created: author time of the EARLIEST commit touching its files, or null.
+ * Needs complete history (a shallow clone would make the oldest available commit look like the creation).
+ */
+const created = new Map();
+export function contentCreated(key) {
+  if (created.has(key)) return created.get(key);
+  ensureHistory();
+  let value = null;
+  if (git(["rev-parse", "--is-shallow-repository"]) === "false") {
+    const all = git(["log", "--format=%aI", "--", ...CONTENT_PATHS[key]]);
+    const first = all ? all.split("\n").filter(Boolean).pop() : null;
+    if (first && ISO_DATETIME.test(first) && !Number.isNaN(Date.parse(first))) value = first;
+  }
+  created.set(key, value);
+  return value;
+}
+
 /** Human-readable account of each date used or omitted (printed in the build log). */
 export function contentDateReport() {
   return Object.keys(CONTENT_PATHS).map((k) => {
     const v = contentDate(k);
-    return v ? `${k}: ${v}` : `${k}: omitted — ${notes.get(k)}`;
+    const c = contentCreated(k);
+    return (v ? `${k}: modified ${v}` : `${k}: modified omitted — ${notes.get(k)}`) + (c ? `, created ${c}` : ", created omitted");
   });
 }

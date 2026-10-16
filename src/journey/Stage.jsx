@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { journey, emit } from "./store.js";
@@ -21,6 +21,43 @@ function detectQuality() {
   return coarse || small || cores <= 4 || memory <= 4 ? "low" : "high";
 }
 
+/**
+ * Compiles the shaders the opening frame needs BEFORE rendering starts, with the browser's parallel shader
+ * compilation (renderer.compileAsync → KHR_parallel_shader_compile). Without this, the first frame compiled and
+ * linked every program synchronously, freezing the main thread for ~2.5 s in lab measurements. The canvas
+ * renders nothing until then (the 2D poster stays as the backdrop), and starts normally if compilation is
+ * unsupported, fails, or takes longer than the fallback timeout.
+ */
+function Warmup({ onWarm }) {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    let done = false;
+    const start = () => { if (!done) { done = true; onWarm(); } };
+    const fallback = setTimeout(start, 10000);
+    Promise.resolve().then(() => compileVisible(gl, scene, camera)).then(start, start);
+    return () => { done = true; clearTimeout(fallback); };
+  }, [gl, scene, camera, onWarm]);
+  return null;
+}
+
+/**
+ * compileAsync() gathers lights from VISIBLE objects but compiles materials for EVERY object — including hidden
+ * worlds such as the digital archive — with the opening frame's lighting, which they never use (measured: 25
+ * programs instead of the 15 the first frame needs). Hidden subtrees are taken out of their parents' child lists
+ * only for the synchronous part of the call, then restored at the same index (no events, no re-parenting), so only
+ * what the opening frame actually draws is compiled up front; the rest compiles when it first appears, as before.
+ */
+function compileVisible(gl, scene, camera) {
+  const hidden = [];
+  scene.traverseVisible((o) => o.children.forEach((c, i) => { if (!c.visible) hidden.push([o, c, i]); }));
+  for (let k = hidden.length - 1; k >= 0; k--) hidden[k][0].children.splice(hidden[k][2], 1);
+  try {
+    return gl.compileAsync(scene, camera);
+  } finally {
+    for (const [parent, child, i] of hidden) parent.children.splice(i, 0, child);
+  }
+}
+
 /** Marks the stage ready after the first rendered frame (so the 2D poster can fade out). */
 function ReadySignal({ onReady }) {
   const done = useRef(false);
@@ -32,17 +69,17 @@ function ReadySignal({ onReady }) {
   return null;
 }
 
-/** Stops rendering entirely while the tab is hidden, and resumes cleanly (no time jump). */
-function VisibilityPause() {
+/** Stops rendering entirely while the tab is hidden, and resumes cleanly (no time jump) — once warmed up. */
+function VisibilityPause({ warm }) {
   const { setFrameloop, clock } = useThree();
   useEffect(() => {
     const onChange = () => {
       if (document.hidden) { setFrameloop("never"); clock.stop(); }
-      else { clock.start(); setFrameloop("always"); }
+      else if (warm.current) { clock.start(); setFrameloop("always"); }
     };
     document.addEventListener("visibilitychange", onChange);
     return () => document.removeEventListener("visibilitychange", onChange);
-  }, [setFrameloop, clock]);
+  }, [setFrameloop, clock, warm]);
   return null;
 }
 
@@ -78,6 +115,15 @@ function ContextWatch({ onFail }) {
 export default function Stage({ onReady, onFail }) {
   const [quality] = useState(detectQuality);
   const [fontsReady, setFontsReady] = useState(false);
+  // Render loop starts paused; Warmup switches it on once the shaders are compiled (see Warmup).
+  const [frameloop, setFrameloop] = useState("never");
+  const warm = useRef(false);
+  // Always "always" here: background tabs already pause requestAnimationFrame, and the Canvas prop must not
+  // stay "never", or a later re-render would stop the loop again.
+  const onWarm = useCallback(() => {
+    warm.current = true;
+    setFrameloop("always");
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -96,6 +142,7 @@ export default function Stage({ onReady, onFail }) {
     <Canvas
       className="stage__canvas"
       aria-hidden="true"
+      frameloop={frameloop}
       dpr={[dpr[0], Math.min(dpr[1], window.devicePixelRatio || 1)]}
       shadows={!low}
       // Pointer events come from the whole page, so 3D objects stay clickable beneath the text overlay.
@@ -121,8 +168,10 @@ export default function Stage({ onReady, onFail }) {
         <Dust count={low ? 220 : 520} />
         <ReadySignal onReady={() => { journey.stageReady = true; emit(); onReady?.(); }} />
         <ContextWatch onFail={onFail} />
-        <VisibilityPause />
+        <VisibilityPause warm={warm} />
         <AdaptiveResolution min={dpr[0]} max={Math.min(dpr[1], window.devicePixelRatio || 1)} />
+        {/* Last, so every scene object above is mounted when compilation starts */}
+        <Warmup onWarm={onWarm} />
       </Suspense>
     </Canvas>
   );

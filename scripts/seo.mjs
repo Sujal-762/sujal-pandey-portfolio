@@ -4,12 +4,28 @@
 // never guessed — when they cannot be determined reliably.
 import { site, profile, contacts } from "../src/content/site.js";
 import { disciplineLabel } from "../src/content/taxonomy.js";
-import { contentDate } from "./content-dates.mjs";
+import { contentDate, contentCreated } from "./content-dates.mjs";
+import { caseStudies } from "../src/content/caseStudies.js";
+import { projects } from "../src/content/projects.js";
 
 const esc = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 const abs = (path) => `${site.siteUrl}${path}`;
+
+// /archive/ describes what it actually holds, computed from the published content — so it never claims case
+// studies or projects that don't exist, and stays accurate once they are published.
+const ARCHIVE_NAME = "Archive – Sujal Pandey, Forensic Science Student";
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function archiveDescription() {
+  const held = [
+    caseStudies.length && plural(caseStudies.length, "source-checked case study", "source-checked case studies"),
+    projects.length && plural(projects.length, "academic project", "academic projects"),
+  ].filter(Boolean);
+  return held.length
+    ? `${held.join(" and ")} by Sujal Pandey, forensic science student at LPU, with sources and the editorial standard.`
+    : "Sujal Pandey’s archive: academic record, background sources and the editorial standard case studies and projects must meet before publication.";
+}
 const personId = () => `${site.siteUrl}/#person`;
 
 /** opts.personImage: absolute URL of the deployed portrait, located and verified by prerender.mjs. */
@@ -43,7 +59,7 @@ export function jsonLd(route, opts = {}) {
           "@type": "CollectionPage",
           "@id": `${abs(route.path)}#webpage`,
           url: abs(route.path),
-          name: "Case Archive – Sujal Pandey",
+          name: ARCHIVE_NAME,
           inLanguage: site.lang,
           author: { "@id": personId() },
         },
@@ -81,22 +97,28 @@ export function jsonLd(route, opts = {}) {
         url: `${site.siteUrl}/`,
         name: site.title,
         inLanguage: site.lang,
-        // Optional: only a genuine ISO 8601 date-time with offset, otherwise left out.
+        isPartOf: { "@id": `${site.siteUrl}/#website` },
+        // Optional: only genuine ISO 8601 date-times with offset (from git), otherwise left out.
+        ...(contentCreated("profile") && { dateCreated: contentCreated("profile") }),
         ...(contentDate("profile") && { dateModified: contentDate("profile") }),
         mainEntity: { "@id": personId() },
       },
       personNode(opts),
+      // Site name: Google uses WebSite structured data on the home page to choose the name shown in results.
+      {
+        "@type": "WebSite",
+        "@id": `${site.siteUrl}/#website`,
+        url: `${site.siteUrl}/`,
+        name: profile.name,
+        inLanguage: site.lang,
+      },
     ],
   };
 }
 
 export function routeMeta(route) {
   if (route.page === "archive") {
-    return {
-      title: "Case Archive – Sujal Pandey, Forensic Science Student",
-      description: "Archive of verified public case studies and academic work by Sujal Pandey, B.Sc. Forensic Science student at LPU, with sources and editorial standards.",
-      ogType: "website",
-    };
+    return { title: ARCHIVE_NAME, description: archiveDescription(), ogType: "website" };
   }
   if (route.page === "case") {
     const c = route.caseStudy;

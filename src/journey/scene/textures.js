@@ -17,15 +17,25 @@ function finish(c, { repeat, anisotropy = 4, srgb = true } = {}) {
   if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
   return t;
 }
+// Grain is generated on a small tile and repeated: per-pixel random grain has no structure, so a repeated tile is
+// statistically identical to grain over the whole canvas, at a fraction of the main-thread cost (the full-size
+// per-pixel loop was the largest scripting cost of building the scene). 256 divides every power-of-two size used,
+// so repeating textures stay seamless.
+const GRAIN_TILE = 256;
+
 function noise(ctx, w, h, seed, base, amp, blotches = 40) {
   const rnd = mulberry32(seed);
-  ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
-  const img = ctx.getImageData(0, 0, w, h);
+  const tw = Math.min(w, GRAIN_TILE), th = Math.min(h, GRAIN_TILE);
+  const [tile, tctx] = canvas(tw, th);
+  tctx.fillStyle = base; tctx.fillRect(0, 0, tw, th);
+  const img = tctx.getImageData(0, 0, tw, th);
   for (let i = 0; i < img.data.length; i += 4) {
     const n = (rnd() - 0.5) * amp;
     img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
   }
-  ctx.putImageData(img, 0, 0);
+  tctx.putImageData(img, 0, 0);
+  ctx.fillStyle = ctx.createPattern(tile, "repeat");
+  ctx.fillRect(0, 0, w, h);
   for (let i = 0; i < blotches; i++) {
     const x = rnd() * w, y = rnd() * h, r = 20 + rnd() * 120;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);

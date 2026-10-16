@@ -5,8 +5,12 @@ import {
 } from "../journey/Chapters.jsx";
 import { ProfileSection, AchievementsSection, LeadershipSection, WorkshopsSection } from "../journey/Dossier.jsx";
 
-// three.js + the scene are loaded only in the browser, after the page is already readable.
-const Stage = lazy(() => import("../journey/Stage.jsx"));
+// three.js + the scene are loaded only in the browser (never part of the pre-rendered HTML or the main bundle).
+// The download starts as soon as the app boots — in parallel with hydration — instead of after it; lazy() reuses
+// the same module promise, so nothing is fetched twice. Skipped on the server and where WebGL does not exist.
+const loadStage = () => import("../journey/Stage.jsx");
+const Stage = lazy(loadStage);
+if (typeof window !== "undefined" && "WebGLRenderingContext" in window) loadStage();
 
 class StageBoundary extends Component {
   state = { failed: false };

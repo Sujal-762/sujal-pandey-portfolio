@@ -110,7 +110,8 @@ export function SketchDialog() {
       onClick={(e) => e.target === ref.current && ref.current.close()}>
       <div className="media-dialog__inner">
         <p id="sketch-title" className="media-dialog__title">Illustrated portrait · original artwork</p>
-        <img src={sketchUrl} width="600" height="760" className="media-dialog__img"
+        {/* lazy: the dialog is closed at load, so the browser (and React's automatic image preload) must not fetch it early */}
+        <img src={sketchUrl} width="600" height="760" className="media-dialog__img" loading="lazy" decoding="async"
           alt="Pencil-style illustration of Sujal Pandey: swept-back wavy hair, rectangular glasses, a gentle smile, short beard, turtleneck and suit jacket." />
         <p className="media-dialog__note">A stylised illustration — not a photograph and not a forensic facial composite.</p>
         <button type="button" className="media-dialog__close" onClick={() => ref.current.close()} aria-label="Close illustration">
